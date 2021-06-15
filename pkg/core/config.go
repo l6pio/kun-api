@@ -4,14 +4,17 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 	"github.com/olivere/elastic/v7"
+	"l6p.io/kun/api/pkg/v1/router/vo/scan"
 )
 
 type Config struct {
-	EsClient *elastic.Client
+	EsClient     *elastic.Client
+	ScanRequests chan scan.Key
 }
 
 func NewConfig() *Config {
 	client, err := elastic.NewClient(
+		// TODO: Put the urls of ES into the configuration.
 		elastic.SetURL("http://127.0.0.1:9200"),
 		elastic.SetSniff(false),
 	)
@@ -21,7 +24,8 @@ func NewConfig() *Config {
 	log.Info("Elasticsearch is connected")
 
 	return &Config{
-		EsClient: client,
+		EsClient:     client,
+		ScanRequests: make(chan scan.Key, 10000),
 	}
 }
 

@@ -17,6 +17,8 @@ func main() {
 	server.HideBanner = true
 
 	server.Use(middleware.CORS())
+
+	// Passing config into the router's context.
 	server.Use(core.WithConfig(conf)...)
 
 	core.AddValidator(server)
@@ -27,6 +29,7 @@ func main() {
 
 	server.HTTPErrorHandler = ErrorHandler
 
+	// Create a new index when the index does not exist.
 	es.CreateIndex(conf)
 
 	if err := server.Start(":1323"); err != nil {

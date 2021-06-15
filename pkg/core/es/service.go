@@ -117,22 +117,22 @@ func CreateIndex(conf *core.Config) {
 	return
 }
 
-func Index(conf *core.Config, report vo.Report) (string, error) {
+func Index(conf *core.Config, report vo.Report) error {
 	id := report.Source.Target.ImageID
 	res, err := conf.EsClient.Index().Index(IndexName).
 		Id(id).OpType("create").BodyJson(report).
 		Do(context.Background())
 
 	if elastic.IsConflict(err) {
-		return id, nil
+		return nil
 	}
 
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	log.Infof("Docker image with ID '%v' has been indexed", res.Id)
-	return id, nil
+	return nil
 }
 
 func SearchByImageID(conf *core.Config, imageID string) ([]*vo.Report, error) {
