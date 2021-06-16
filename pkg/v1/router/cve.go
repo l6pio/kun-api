@@ -3,13 +3,26 @@ package router
 import (
 	"github.com/labstack/echo/v4"
 	"l6p.io/kun/api/pkg/core"
-	"l6p.io/kun/api/pkg/core/es"
+	"l6p.io/kun/api/pkg/core/cve"
 	"l6p.io/kun/api/pkg/v1/router/vo/scan"
 	"l6p.io/kun/api/pkg/v1/router/vo/search"
 	"net/http"
 )
 
 func CveRouter(group *echo.Group) {
+	group.GET("", func(ctx echo.Context) error {
+		conf := ctx.Get("config").(*core.Config)
+
+		reports, err := cve.ListAll(conf)
+		if err != nil {
+			return err
+		}
+
+		return ctx.JSON(http.StatusOK, search.Response{
+			Reports: reports,
+		})
+	})
+
 	group.POST("/scan", func(ctx echo.Context) error {
 		conf := ctx.Get("config").(*core.Config)
 
@@ -38,7 +51,7 @@ func CveRouter(group *echo.Group) {
 			return err
 		}
 
-		reports, err := es.SearchByImageID(conf, data.ImageID)
+		reports, err := cve.FindByImageID(conf, data.ImageID)
 		if err != nil {
 			return err
 		}

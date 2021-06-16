@@ -2,6 +2,7 @@ package es
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"github.com/labstack/gommon/log"
 	"github.com/olivere/elastic/v7"
@@ -11,91 +12,8 @@ import (
 
 const IndexName = "cve"
 
-const IndexMappings = `
-{
-  "mappings": {
-	"properties": {
-      "matches": {
-        "type": "nested",
-        "properties": {
-		  "artifact": {
-			"type": "nested",
-			"properties": {
-			  "name": {"type": "keyword"},
-			  "version": {"type": "keyword"},
-			  "type": {"type": "keyword"},
-			  "locations": {
-				"type": "nested",
-				"properties": {
-				  "path": {"type": "text"},
-				  "layerID": {"type": "keyword"}
-				}
-              },
-			  "language": {"type": "keyword"},
-			  "licenses": {"type": "keyword"},
-			  "cpes": {"type": "keyword"},
-			  "purl": {"type": "text"},
-			  "metadata": {
-                "type": "nested",
-                "properties": {
-                  "VirtualPath": {"type": "text"},
-                  "PomArtifactID": {"type": "keyword"},
-                  "PomGroupID": {"type": "keyword"}
-                }
-			  }
-			}
-		  },
-		  "vulnerability": {
-			"type": "nested",
-			"properties": {
-              "id": {"type": "keyword"},
-              "dataSource": {"type": "text"},
-              "namespace": {"type": "keyword"},
-              "severity": {"type": "keyword"},
-              "urls": {"type": "text"},
-              "description": {"type": "text"},
-              "cvss": {
-			    "type": "nested",
-                "properties": {
-                  "version": {"type": "keyword"},
-                  "metrics": {
-                    "type": "nested",
-                    "properties": {
-                      "baseScore": {"type": "double"},
-                      "exploitabilityScore": {"type": "double"},
-                      "impactScore": {"type": "double"}
-                    }
-                  }
-                }
-              },
-			  "fix": {
-			    "type": "nested",
-                "properties": {
-				  "versions": {"type": "keyword"},
-				  "state": {"type": "keyword"}
-				}                
-              }
-			}
-		  }
-		}
-      },
-	  "source": {
-		"type": "nested",
-		"properties": {
-		  "target": {
-            "type": "nested",
-            "properties": {
-			  "userInput": {"type": "keyword"},
-			  "imageID": {"type": "keyword"},
-			  "imageSize": {"type": "long"}
-			}
-		  }
-		}
-	  }
-	}
-  }
-}
-`
+//go:embed mappings.json
+var IndexMappings string
 
 func CreateIndex(conf *core.Config) {
 	ctx := context.Background()
@@ -117,31 +35,20 @@ func CreateIndex(conf *core.Config) {
 	return
 }
 
-func Index(conf *core.Config, report vo.Report) error {
+func Index(conf *core.Config, report vo.Report) (string, error) {
 	id := report.Source.Target.ImageID
 	res, err := conf.EsClient.Index().Index(IndexName).
 		Id(id).OpType("create").BodyJson(report).
 		Do(context.Background())
 
 	if elastic.IsConflict(err) {
-		return nil
+		return "", nil
 	}
 
 	if err != nil {
-		return err
+		return "", err
 	}
-
-	log.Infof("Docker image with ID '%v' has been indexed", res.Id)
-	return nil
-}
-
-func SearchByImageID(conf *core.Config, imageID string) ([]*vo.Report, error) {
-	query := elastic.NewNestedQuery(
-		"source", elastic.NewNestedQuery(
-			"source.target", elastic.NewTermQuery("source.target.imageID", imageID),
-		),
-	)
-	return Search(conf, query)
+	return res.Id, nil
 }
 
 func Search(conf *core.Config, query elastic.Query) ([]*vo.Report, error) {
