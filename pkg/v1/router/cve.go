@@ -4,23 +4,23 @@ import (
 	"github.com/labstack/echo/v4"
 	"l6p.io/kun/api/pkg/core"
 	"l6p.io/kun/api/pkg/core/cve"
+	"l6p.io/kun/api/pkg/v1/router/vo"
 	"l6p.io/kun/api/pkg/v1/router/vo/scan"
-	"l6p.io/kun/api/pkg/v1/router/vo/search"
 	"net/http"
 )
 
 func CveRouter(group *echo.Group) {
 	group.GET("", func(ctx echo.Context) error {
 		conf := ctx.Get("config").(*core.Config)
+		page := IntParam(ctx, "page")
+		order := OrderParam(ctx, "order", "severity")
 
-		reports, err := cve.ListAll(conf)
+		ret, err := cve.List(conf, page, order)
 		if err != nil {
 			return err
 		}
 
-		return ctx.JSON(http.StatusOK, search.Response{
-			Reports: reports,
-		})
+		return ctx.JSON(http.StatusOK, vo.Response{Result: ret})
 	})
 
 	group.POST("/scan", func(ctx echo.Context) error {
@@ -37,28 +37,5 @@ func CveRouter(group *echo.Group) {
 
 		conf.ScanRequests <- *key
 		return ctx.NoContent(http.StatusOK)
-	})
-
-	group.POST("/search/by-image-id", func(ctx echo.Context) error {
-		conf := ctx.Get("config").(*core.Config)
-
-		data := new(search.ByImageID)
-		if err := ctx.Bind(data); err != nil {
-			return err
-		}
-
-		if err := ctx.Validate(data); err != nil {
-			return err
-		}
-
-		reports, err := cve.FindByImageID(conf, data.ImageID)
-		if err != nil {
-			return err
-		}
-
-		return ctx.JSON(http.StatusOK, search.Response{
-			Request: data,
-			Reports: reports,
-		})
 	})
 }

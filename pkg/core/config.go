@@ -1,30 +1,20 @@
 package core
 
 import (
+	"database/sql"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
-	"github.com/olivere/elastic/v7"
+	"l6p.io/kun/api/pkg/core/db"
 	"l6p.io/kun/api/pkg/v1/router/vo/scan"
 )
 
 type Config struct {
-	EsClient     *elastic.Client
+	DbConn       *sql.DB
 	ScanRequests chan scan.Key
 }
 
 func NewConfig() *Config {
-	client, err := elastic.NewClient(
-		// TODO: Put the urls of ES into the configuration.
-		elastic.SetURL("http://127.0.0.1:9200"),
-		elastic.SetSniff(false),
-	)
-	if err != nil {
-		log.Fatalf("Elasticsearch connection failed: %v", err)
-	}
-	log.Info("Elasticsearch is connected")
-
 	return &Config{
-		EsClient:     client,
+		DbConn:       db.Connect(),
 		ScanRequests: make(chan scan.Key, 10000),
 	}
 }
