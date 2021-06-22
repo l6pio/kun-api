@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"github.com/labstack/gommon/log"
 	"l6p.io/kun/api/pkg/core"
 	"l6p.io/kun/api/pkg/core/cve/vo/api"
@@ -12,6 +11,7 @@ import (
 	"l6p.io/kun/api/pkg/core/db"
 	"l6p.io/kun/api/pkg/core/db/query/cve"
 	"os/exec"
+	"strconv"
 	"time"
 )
 
@@ -30,54 +30,36 @@ var VulFixState = map[string]int64{
 	"unknown":   0,
 }
 
-func Scan(conf *core.Config) {
-	go func() {
-		for {
-			key := <-conf.ScanRequests
-			img := fmt.Sprintf("%s:%s", key.ImageRepo, key.ImageTag)
+func Scan(imageName string) *raw.Report {
+	log.Infof("Preparing to scan the image: %s", imageName)
 
-			log.Infof("Preparing to scan the image: %s", img)
+	var buildOut bytes.Buffer
+	buildCmd := exec.Command("grype", imageName, "-o=json")
+	buildCmd.Dir = "/usr/local/bin/"
+	buildCmd.Stdout = &buildOut
+	buildCmd.Stderr = &buildOut
 
-			var buildOut bytes.Buffer
-			buildCmd := exec.Command("grype", img, "-o=json")
-			buildCmd.Dir = "/usr/local/bin/"
-			buildCmd.Stdout = &buildOut
-			buildCmd.Stderr = &buildOut
+	if err := buildCmd.Run(); err != nil {
+		log.Errorf("CVE scanning failed for '%s': %v", imageName, err)
+		return nil
+	}
 
-			if err := buildCmd.Run(); err != nil {
-				log.Errorf("CVE scanning failed for '%s': %v\n", img, err)
-				continue
-			}
+	log.Info("Scanning completed")
 
-			log.Info("Scanning completed")
+	var report raw.Report
+	if err := json.Unmarshal(buildOut.Bytes(), &report); err != nil {
+		log.Errorf("Scan result parsing failed: %v", err)
+		return nil
+	}
 
-			var report raw.Report
-			if err := json.Unmarshal(buildOut.Bytes(), &report); err != nil {
-				log.Errorf("Scan result parsing failed: %v\n", err)
-				continue
-			}
-
-			if len(report.Matches) == 0 {
-				log.Info("No vulnerabilities found")
-			}
-
-			log.Info("Start saving scan results")
-
-			err := Insert(conf.DbConn, &report)
-			if err != nil {
-				log.Error(err)
-			}
-
-			log.Infof("Scan results of '%v' has been saved", report.Source.Target.UserInput)
-		}
-	}()
+	return &report
 }
 
 func Insert(conn *sql.DB, report *raw.Report) error {
-	return db.RunTx(conn, cve.InsertReportIntoCveTableSQL(), func(stmt *sql.Stmt) error {
+	_, err := db.RunTx(conn, cve.InsertReportSql(), func(stmt *sql.Stmt) (interface{}, error) {
 		for _, m := range report.Matches {
-			imgName := report.Source.Target.UserInput
 			imgId := report.Source.Target.ImageID
+			imgName := report.Source.Target.UserInput
 			imgSize := report.Source.Target.ImageSize
 
 			artName := m.Artifact.Name
@@ -97,47 +79,48 @@ func Insert(conn *sql.DB, report *raw.Report) error {
 			vulFixVersions := m.Vulnerability.Fix.Versions
 			vulFixState := VulFixState[m.Vulnerability.Fix.State]
 
-			if len(m.Vulnerability.Cvss) == 0 {
-				if _, err := stmt.Exec(
-					imgName, imgId, imgSize,
-					artName, artVersion, artType, artLang, artLicenses, artCpes, artPurl,
-					vulId, vulDataSource, vulNamespace, vulSeverity, vulUrls, vulDesc,
-					"", 0.0, 0.0, 0.0,
-					vulFixVersions, vulFixState, time.Now(),
-				); err != nil {
-					return err
-				}
-			} else {
-				for _, cvss := range m.Vulnerability.Cvss {
-					vulCvssVersion := cvss.Version
-					vulCvssBaseScore := cvss.Metrics.BaseScore
-					vulCvssExploitScore := cvss.Metrics.ExploitabilityScore
-					vulCvssImpactScore := cvss.Metrics.ImpactScore
+			maxVersion := 0.0
+			baseScore := 0.0
+			exploitScore := 0.0
+			impactScore := 0.0
 
-					if _, err := stmt.Exec(
-						imgName, imgId, imgSize,
-						artName, artVersion, artType, artLang, artLicenses, artCpes, artPurl,
-						vulId, vulDataSource, vulNamespace, vulSeverity, vulUrls, vulDesc,
-						vulCvssVersion, vulCvssBaseScore, vulCvssExploitScore, vulCvssImpactScore,
-						vulFixVersions, vulFixState, time.Now(),
-					); err != nil {
-						return err
-					}
+			for _, cvss := range m.Vulnerability.Cvss {
+				version, err := strconv.ParseFloat(cvss.Version, 64)
+				if err != nil {
+					continue
+				}
+
+				if version > maxVersion {
+					maxVersion = version
+					baseScore = cvss.Metrics.BaseScore
+					exploitScore = cvss.Metrics.ExploitabilityScore
+					impactScore = cvss.Metrics.ImpactScore
 				}
 			}
+
+			if _, err := stmt.Exec(
+				imgId, imgName, imgSize,
+				artName, artVersion, artType, artLang, artLicenses, artCpes, artPurl,
+				vulId, vulDataSource, vulNamespace, vulSeverity, vulUrls, vulDesc,
+				maxVersion, baseScore, exploitScore, impactScore,
+				vulFixVersions, vulFixState, time.Now(),
+			); err != nil {
+				return nil, err
+			}
 		}
-		return nil
+		return nil, nil
 	})
+	return err
 }
 
 func List(conf *core.Config, page int, order string) (*db.Paging, error) {
 	ret, err := (&db.Paging{
 		Page: page,
 		DoCount: func() (*sql.Rows, error) {
-			return conf.DbConn.Query(cve.CountAllCvesSQL())
+			return conf.DbConn.Query(cve.CountAllSql())
 		},
 		DoQuery: func(from int, size int) (*sql.Rows, error) {
-			return conf.DbConn.Query(cve.SelectAllCvesSQL(order), from, size)
+			return conf.DbConn.Query(cve.SelectAllSql(order), from, size)
 		},
 		Convert: func(rows *sql.Rows) []interface{} {
 			ret := make([]interface{}, 0)

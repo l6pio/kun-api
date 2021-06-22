@@ -1,4 +1,4 @@
-package scan
+package img
 
 type Key struct {
 	ImageRepo string `json:"imageRepo" validate:"required"`

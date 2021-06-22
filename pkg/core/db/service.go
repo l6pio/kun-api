@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/gommon/log"
 	"l6p.io/kun/api/pkg/core/db/query"
 	"l6p.io/kun/api/pkg/core/db/query/cve"
+	"l6p.io/kun/api/pkg/core/db/query/img"
 )
 
 func Init(conn *sql.DB) {
@@ -15,15 +16,20 @@ func Init(conn *sql.DB) {
 		log.Fatalf("Create database error: %v", err)
 	}
 
-	_, err = conn.Exec(cve.CreateCveTableSQL())
+	_, err = conn.Exec(cve.CreateTableSql())
 	if err != nil {
-		log.Fatalf("Create CVE table error: %v", err)
+		log.Fatalf("Create 'cve' table error: %v", err)
+	}
+
+	_, err = conn.Exec(img.CreateTableSql())
+	if err != nil {
+		log.Fatalf("Create 'img' table error: %v", err)
 	}
 }
 
 func Connect() *sql.DB {
 	//TODO: put this into config
-	conn, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true")
+	conn, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000")
 	if err != nil {
 		log.Fatalf("Database connection failed: %v", err)
 	}
@@ -43,25 +49,25 @@ func Ping(conn *sql.DB) {
 	}
 }
 
-func RunTx(conn *sql.DB, query string, action func(stmt *sql.Stmt) error) error {
+func RunTx(conn *sql.DB, query string, action func(stmt *sql.Stmt) (interface{}, error)) (interface{}, error) {
 	tx, err := conn.Begin()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	stmt, err := tx.Prepare(query)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer stmt.Close()
 
-	err = action(stmt)
+	ret, err := action(stmt)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return ret, nil
 }

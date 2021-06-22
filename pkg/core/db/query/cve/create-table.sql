@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS kun.cve
 (
-    img_name               String,
     img_id                 String,
+    img_name               String,
     img_size               Int64,
     art_name               String,
     art_version            String,
@@ -16,14 +16,14 @@ CREATE TABLE IF NOT EXISTS kun.cve
     vul_severity           Int64,
     vul_urls               Array(String),
     vul_desc               String,
-    vul_cvss_version       String,
-    vul_cvss_base_score    Float32,
-    vul_cvss_exploit_score Float32,
-    vul_cvss_impact_score  Float32,
+    vul_cvss_version       Float64,
+    vul_cvss_base_score    Float64,
+    vul_cvss_exploit_score Float64,
+    vul_cvss_impact_score  Float64,
     vul_fix_versions       Array(String),
     vul_fix_state          Int64,
     timestamp              DateTime
 )
-ENGINE = MergeTree()
-PARTITION BY toYYYYMM(timestamp)
-ORDER BY img_id
+    ENGINE = MergeTree()
+        PARTITION BY toYYYYMM(timestamp)
+        ORDER BY img_id
