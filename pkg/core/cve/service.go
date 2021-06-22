@@ -125,14 +125,18 @@ func List(conf *core.Config, page int, order string) (*db.Paging, error) {
 		Convert: func(rows *sql.Rows) []interface{} {
 			ret := make([]interface{}, 0)
 			for rows.Next() {
-				var vulId string
-				var vulSeverity int64
-				if err := rows.Scan(&vulId, &vulSeverity); err != nil {
+				var id string
+				var severity int64
+				var imageCount int64
+
+				if err := rows.Scan(&id, &severity, &imageCount); err != nil {
 					log.Error(err)
 				}
+
 				ret = append(ret, api.Vulnerability{
-					Id:       vulId,
-					Severity: vulSeverity,
+					Id:         id,
+					Severity:   severity,
+					ImageCount: imageCount,
 				})
 			}
 			return ret
