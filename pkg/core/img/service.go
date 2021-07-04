@@ -35,16 +35,16 @@ func Exists(conn *sql.DB, imageId string) (bool, error) {
 	return count > 0, nil
 }
 
-func Status(conn *sql.DB, imageId string, imageName string, status int) (string, error) {
+func Status(conn *sql.DB, imageId string, image string, status int) (string, error) {
 	id, err := db.RunTx(conn, img.InsertStatusSql(), func(stmt *sql.Stmt) (interface{}, error) {
 		id := uuid.New().String()
-		_, err := stmt.Exec(id, imageId, imageName, status, time.Now())
+		_, err := stmt.Exec(id, imageId, image, status, time.Now())
 		return id, err
 	})
 	if err != nil {
 		return "", err
 	}
-	log.Infof("Update image '%s' status to UP", imageId)
+	log.Infof("update image '%s' status to UP", imageId)
 	return id.(string), nil
 }
 

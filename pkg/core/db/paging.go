@@ -40,7 +40,7 @@ func (p *Paging) Do() (*Paging, error) {
 	p.Slice = make([]interface{}, 0)
 
 	if p.Count == 0 {
-		return nil, err
+		return p, nil
 	}
 
 	if p.Page == 0 {

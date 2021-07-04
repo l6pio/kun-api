@@ -30,25 +30,25 @@ var VulFixState = map[string]int64{
 	"unknown":   0,
 }
 
-func Scan(imageName string) *raw.Report {
-	log.Infof("Preparing to scan the image: %s", imageName)
+func Scan(image string) *raw.Report {
+	log.Infof("preparing to scan the image: %s", image)
 
 	var buildOut bytes.Buffer
-	buildCmd := exec.Command("grype", imageName, "-o=json")
+	buildCmd := exec.Command("grype", image, "-o=json")
 	buildCmd.Dir = "/usr/local/bin/"
 	buildCmd.Stdout = &buildOut
 	buildCmd.Stderr = &buildOut
 
 	if err := buildCmd.Run(); err != nil {
-		log.Errorf("CVE scanning failed for '%s': %v", imageName, err)
+		log.Errorf("CVE scanning failed for '%s': %v", image, err)
 		return nil
 	}
 
-	log.Info("Scanning completed")
+	log.Info("scanning completed")
 
 	var report raw.Report
 	if err := json.Unmarshal(buildOut.Bytes(), &report); err != nil {
-		log.Errorf("Scan result parsing failed: %v", err)
+		log.Errorf("scan result parsing failed: %v", err)
 		return nil
 	}
 
@@ -127,15 +127,17 @@ func List(conf *core.Config, page int, order string) (*db.Paging, error) {
 			for rows.Next() {
 				var id string
 				var severity int64
+				var fixState int64
 				var imageCount int64
 
-				if err := rows.Scan(&id, &severity, &imageCount); err != nil {
+				if err := rows.Scan(&id, &severity, &fixState, &imageCount); err != nil {
 					log.Error(err)
 				}
 
 				ret = append(ret, api.Vulnerability{
 					Id:         id,
 					Severity:   severity,
+					FixState:   fixState,
 					ImageCount: imageCount,
 				})
 			}

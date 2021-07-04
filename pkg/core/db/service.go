@@ -13,38 +13,37 @@ import (
 func Init(conn *sql.DB) {
 	_, err := conn.Exec(query.CreateDatabaseSQL())
 	if err != nil {
-		log.Fatalf("Create database error: %v", err)
+		log.Fatalf("create database error: %v", err)
 	}
 
 	_, err = conn.Exec(cve.CreateTableSql())
 	if err != nil {
-		log.Fatalf("Create 'cve' table error: %v", err)
+		log.Fatalf("create 'cve' table error: %v", err)
 	}
 
 	_, err = conn.Exec(img.CreateTableSql())
 	if err != nil {
-		log.Fatalf("Create 'img' table error: %v", err)
+		log.Fatalf("create 'img' table error: %v", err)
 	}
 }
 
-func Connect() *sql.DB {
-	//TODO: put this into config
-	conn, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000")
+func Connect(clickhouseAddr string) *sql.DB {
+	conn, err := sql.Open("clickhouse", clickhouseAddr)
 	if err != nil {
-		log.Fatalf("Database connection failed: %v", err)
+		log.Fatalf("database connection failed: %v", err)
 	}
 	Ping(conn)
-	log.Info("Database is connected")
+	log.Info("database is connected")
 	return conn
 }
 
 func Ping(conn *sql.DB) {
 	if err := conn.Ping(); err != nil {
 		if exception, ok := err.(*clickhouse.Exception); ok {
-			log.Fatalf("Database error '%d': %s\n%s",
+			log.Fatalf("database error '%d': %s\n%s",
 				exception.Code, exception.Message, exception.StackTrace)
 		} else {
-			log.Fatalf("Database error: %v", err)
+			log.Fatalf("database error: %v", err)
 		}
 	}
 }

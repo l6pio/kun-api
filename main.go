@@ -2,7 +2,7 @@ package main
 
 import (
 	_ "embed"
-	"fmt"
+	"flag"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
@@ -15,7 +15,11 @@ import (
 )
 
 func main() {
-	conf := core.NewConfig()
+	var clickhouseAddr string
+	flag.StringVar(&clickhouseAddr, "clickhouse-addr", "tcp://127.0.0.1:9000", "The clickhouse connection address.")
+	flag.Parse()
+
+	conf := core.NewConfig(clickhouseAddr)
 
 	server := echo.New()
 	server.HideBanner = true
@@ -40,7 +44,7 @@ func main() {
 	WaitForScanRequests(conf)
 
 	if err := server.Start(":1323"); err != nil {
-		log.Fatalf("Server startup failed: %v", err)
+		log.Fatalf("server startup failed: %v", err)
 	}
 }
 
@@ -48,12 +52,10 @@ func WaitForScanRequests(conf *core.Config) {
 	go func() {
 		for {
 			key := <-conf.ImageUpEvents
-			imageName := fmt.Sprintf("%s:%s", key.ImageRepo, key.ImageTag)
-
-			report := cve.Scan(imageName)
+			report := cve.Scan(key.Image)
 
 			imageId := report.Source.Target.ImageID
-			id, err := img.Status(conf.DbConn, imageId, imageName, img.StatusUp)
+			id, err := img.Status(conf.DbConn, imageId, key.Image, img.StatusUp)
 			if err != nil {
 				log.Error(err)
 				continue
@@ -62,7 +64,7 @@ func WaitForScanRequests(conf *core.Config) {
 			pickId, err := img.PickId(conf.DbConn, imageId)
 
 			if id != pickId {
-				log.Infof("Image '%s' scan report does not need to be updated repeatedly")
+				log.Infof("image '%s' scan report does not need to be updated repeatedly")
 				continue
 			}
 
@@ -73,15 +75,15 @@ func WaitForScanRequests(conf *core.Config) {
 			}
 
 			if exists {
-				log.Infof("Image '%s' scan report already exists", imageId)
+				log.Infof("image '%s' scan report already exists", imageId)
 				continue
 			}
 
 			if len(report.Matches) == 0 {
-				log.Info("No vulnerabilities found")
+				log.Info("no vulnerabilities found")
 			}
 
-			log.Info("Start saving scan results")
+			log.Info("start saving scan results")
 
 			err = cve.Insert(conf.DbConn, report)
 			if err != nil {
@@ -89,7 +91,7 @@ func WaitForScanRequests(conf *core.Config) {
 				continue
 			}
 
-			log.Infof("Scan results of '%v' has been saved", imageId)
+			log.Infof("scan results of '%v' has been saved", imageId)
 		}
 	}()
 }

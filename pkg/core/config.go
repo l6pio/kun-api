@@ -12,9 +12,9 @@ type Config struct {
 	ImageUpEvents chan img.Key
 }
 
-func NewConfig() *Config {
+func NewConfig(clickhouseAddr string) *Config {
 	return &Config{
-		DbConn:        db.Connect(),
+		DbConn:        db.Connect(clickhouseAddr),
 		ImageUpEvents: make(chan img.Key, 10000),
 	}
 }
