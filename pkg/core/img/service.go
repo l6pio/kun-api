@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"github.com/google/uuid"
 	"github.com/labstack/gommon/log"
+	"l6p.io/kun/api/pkg/core"
+	"l6p.io/kun/api/pkg/core/cve/vo/api"
 	"l6p.io/kun/api/pkg/core/db"
 	"l6p.io/kun/api/pkg/core/db/query/img"
 	"time"
@@ -13,6 +15,45 @@ const (
 	StatusUp   = 1
 	StatusDown = 0
 )
+
+func List(conf *core.Config, page int, order string) (*db.Paging, error) {
+	ret, err := (&db.Paging{
+		Page: page,
+		DoCount: func() (*sql.Rows, error) {
+			return conf.DbConn.Query(img.CountAllSql())
+		},
+		DoQuery: func(from int, size int) (*sql.Rows, error) {
+			return conf.DbConn.Query(img.SelectAllSql(order), from, size)
+		},
+		Convert: func(rows *sql.Rows) []interface{} {
+			ret := make([]interface{}, 0)
+			for rows.Next() {
+				var id string
+				var name string
+				var size int64
+				var artCount int64
+				var vulCount int64
+
+				if err := rows.Scan(&id, &name, &size, &artCount, &vulCount); err != nil {
+					log.Error(err)
+				}
+
+				ret = append(ret, api.Image{
+					Id:       id,
+					Name:     name,
+					Size:     size,
+					ArtCount: artCount,
+					VulCount: vulCount,
+				})
+			}
+			return ret
+		},
+	}).Do()
+	if err != nil {
+		return nil, err
+	}
+	return ret, err
+}
 
 func Exists(conn *sql.DB, imageId string) (bool, error) {
 	stmt, err := conn.Prepare(img.CountByIdSql())

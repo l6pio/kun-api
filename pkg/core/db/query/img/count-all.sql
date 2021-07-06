@@ -1,0 +1,2 @@
+SELECT COUNT(DISTINCT img_id)
+FROM kun.cve

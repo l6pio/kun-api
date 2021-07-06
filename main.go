@@ -51,11 +51,11 @@ func main() {
 func WaitForScanRequests(conf *core.Config) {
 	go func() {
 		for {
-			key := <-conf.ImageUpEvents
-			report := cve.Scan(key.Image)
+			image := <-conf.ImageUpEvents
+			report := cve.Scan(image)
 
 			imageId := report.Source.Target.ImageID
-			id, err := img.Status(conf.DbConn, imageId, key.Image, img.StatusUp)
+			id, err := img.Status(conf.DbConn, imageId, image, img.StatusUp)
 			if err != nil {
 				log.Error(err)
 				continue

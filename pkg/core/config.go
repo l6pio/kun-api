@@ -4,18 +4,17 @@ import (
 	"database/sql"
 	"github.com/labstack/echo/v4"
 	"l6p.io/kun/api/pkg/core/db"
-	"l6p.io/kun/api/pkg/v1/router/vo/img"
 )
 
 type Config struct {
 	DbConn        *sql.DB
-	ImageUpEvents chan img.Key
+	ImageUpEvents chan string
 }
 
 func NewConfig(clickhouseAddr string) *Config {
 	return &Config{
 		DbConn:        db.Connect(clickhouseAddr),
-		ImageUpEvents: make(chan img.Key, 10000),
+		ImageUpEvents: make(chan string, 10000),
 	}
 }
 
