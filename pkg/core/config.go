@@ -1,20 +1,36 @@
 package core
 
 import (
-	"database/sql"
 	"github.com/labstack/echo/v4"
-	"l6p.io/kun/api/pkg/core/db"
 )
 
 type Config struct {
-	DbConn        *sql.DB
-	ImageUpEvents chan string
+	DatabaseName string
+	MongoAddr    string
+	MongoUser    string
+	MongoPass    string
+	ImageEvents  chan ImageEvent
 }
 
-func NewConfig(clickhouseAddr string) *Config {
+type ImageEventType int
+
+const (
+	ImageUp   ImageEventType = 1
+	ImageDown ImageEventType = 0
+)
+
+type ImageEvent struct {
+	Type  ImageEventType
+	Image string
+}
+
+func NewConfig(mongoAddr, mongoUser, mongoPass string) *Config {
 	return &Config{
-		DbConn:        db.Connect(clickhouseAddr),
-		ImageUpEvents: make(chan string, 10000),
+		DatabaseName: "kun",
+		MongoAddr:    mongoAddr,
+		MongoUser:    mongoUser,
+		MongoPass:    mongoPass,
+		ImageEvents:  make(chan ImageEvent, 10000),
 	}
 }
 

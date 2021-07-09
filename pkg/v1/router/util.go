@@ -21,10 +21,5 @@ func OrderParam(ctx echo.Context, name string, defaultOrder string) string {
 	if param == "" {
 		return defaultOrder
 	}
-
-	if param[0] == '-' {
-		return param[1:] + " DESC"
-	} else {
-		return param + " ASC"
-	}
+	return param
 }

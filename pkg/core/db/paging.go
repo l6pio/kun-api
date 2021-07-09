@@ -1,38 +1,25 @@
 package db
 
 import (
-	"database/sql"
+	"gopkg.in/mgo.v2"
 	"math"
 )
 
 type Paging struct {
-	Slice       []interface{}                               `json:"slice"`
-	Count       int                                         `json:"count"`
-	Page        int                                         `json:"page"`
-	PageCount   int                                         `json:"pageCount"`
-	RowsPerPage int                                         `json:"rowsPerPage"`
-	DoCount     func() (*sql.Rows, error)                   `json:"-"`
-	DoQuery     func(from int, size int) (*sql.Rows, error) `json:"-"`
-	Convert     func(rows *sql.Rows) []interface{}          `json:"-"`
+	Slice       []interface{} `json:"slice"`
+	Count       int           `json:"count"`
+	Page        int           `json:"page"`
+	PageCount   int           `json:"pageCount"`
+	RowsPerPage int           `json:"rowsPerPage"`
 }
 
-func (p *Paging) Do() (*Paging, error) {
+func (p *Paging) Do(query *mgo.Query, page int, order string) (*Paging, error) {
+	p.Page = page
 	p.PageCount = 1
 	p.RowsPerPage = 15
 
-	countRows, err := p.DoCount()
+	count, err := query.Count()
 	if err != nil {
-		return nil, err
-	}
-	defer countRows.Close()
-
-	var count int
-	countRows.Next()
-	if err := countRows.Scan(&count); err != nil {
-		return nil, err
-	}
-
-	if err := countRows.Err(); err != nil {
 		return nil, err
 	}
 
@@ -44,34 +31,22 @@ func (p *Paging) Do() (*Paging, error) {
 	}
 
 	if p.Page == 0 {
-		dataRows, err := p.DoQuery(0, p.Count)
-		if err != nil {
+		var slice []interface{}
+		if err := query.Skip(0).Limit(p.Count).Sort(order).All(&slice); err != nil {
 			return nil, err
 		}
-		defer dataRows.Close()
-
-		p.Slice = p.Convert(dataRows)
-
-		if err := dataRows.Err(); err != nil {
-			return nil, err
-		}
+		p.Slice = slice
 	} else {
 		p.PageCount = int(math.Ceil(float64(p.Count) / float64(p.RowsPerPage)))
 		if p.Page > p.PageCount {
 			p.Page = p.PageCount
 		}
 
-		dataRows, err := p.DoQuery((p.Page-1)*p.RowsPerPage, p.RowsPerPage)
-		if err != nil {
+		var slice []interface{}
+		if err := query.Skip((p.Page - 1) * p.RowsPerPage).Limit(p.RowsPerPage).Sort(order).All(&slice); err != nil {
 			return nil, err
 		}
-		defer dataRows.Close()
-
-		p.Slice = p.Convert(dataRows)
-
-		if err := dataRows.Err(); err != nil {
-			return nil, err
-		}
+		p.Slice = slice
 	}
 	return p, nil
 }

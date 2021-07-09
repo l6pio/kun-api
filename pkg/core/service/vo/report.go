@@ -1,4 +1,4 @@
-package raw
+package vo
 
 type Report struct {
 	Matches []*Match `json:"matches"`

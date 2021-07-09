@@ -3,8 +3,7 @@ package router
 import (
 	"github.com/labstack/echo/v4"
 	"l6p.io/kun/api/pkg/core"
-	"l6p.io/kun/api/pkg/core/img"
-	"l6p.io/kun/api/pkg/v1/router/vo"
+	"l6p.io/kun/api/pkg/core/db"
 	"net/http"
 )
 
@@ -14,29 +13,33 @@ func ImageRouter(group *echo.Group) {
 		page := IntParam(ctx, "page")
 		order := OrderParam(ctx, "order", "name")
 
-		ret, err := img.List(conf, page, order)
+		ret, err := db.ListAllImages(conf, page, order)
 		if err != nil {
 			return err
 		}
 
-		return ctx.JSON(http.StatusOK, vo.Response{Result: ret})
+		return ctx.JSON(http.StatusOK, ret)
 	})
 
-	group.POST("/up", func(ctx echo.Context) error {
+	group.POST("/status", func(ctx echo.Context) error {
 		conf := ctx.Get("config").(*core.Config)
 
-		key := new(struct {
-			Image string `json:"image" validate:"required"`
+		data := new(struct {
+			Image  string `json:"image" validate:"required"`
+			Status *int64 `json:"status" validate:"required"`
 		})
-		if err := ctx.Bind(key); err != nil {
+		if err := ctx.Bind(data); err != nil {
 			return err
 		}
 
-		if err := ctx.Validate(key); err != nil {
+		if err := ctx.Validate(data); err != nil {
 			return err
 		}
 
-		conf.ImageUpEvents <- key.Image
+		conf.ImageEvents <- core.ImageEvent{
+			Type:  core.ImageEventType(*data.Status),
+			Image: data.Image,
+		}
 		return ctx.NoContent(http.StatusOK)
 	})
 }

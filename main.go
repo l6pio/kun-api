@@ -7,19 +7,22 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 	"l6p.io/kun/api/pkg/core"
-	"l6p.io/kun/api/pkg/core/cve"
 	"l6p.io/kun/api/pkg/core/db"
-	"l6p.io/kun/api/pkg/core/img"
+	"l6p.io/kun/api/pkg/core/service"
 	"l6p.io/kun/api/pkg/v1/router"
 	"net/http"
 )
 
 func main() {
-	var clickhouseAddr string
-	flag.StringVar(&clickhouseAddr, "clickhouse-addr", "tcp://127.0.0.1:9000", "The clickhouse connection address.")
+	var mongoAddr string
+	var mongoUser string
+	var mongoPass string
+	flag.StringVar(&mongoAddr, "mongoAddr", "localhost:32017", "The mongodb connection address")
+	flag.StringVar(&mongoUser, "mongoUser", "root", "The mongodb username")
+	flag.StringVar(&mongoPass, "mongoPass", "rootpassword", "The mongodb password")
 	flag.Parse()
 
-	conf := core.NewConfig(clickhouseAddr)
+	conf := core.NewConfig(mongoAddr, mongoUser, mongoPass)
 
 	server := echo.New()
 	server.HideBanner = true
@@ -38,62 +41,50 @@ func main() {
 
 	server.HTTPErrorHandler = ErrorHandler
 
-	db.Init(conf.DbConn)
-
 	// Read and process CVE scan requests
-	WaitForScanRequests(conf)
+	WaitForImageEvents(conf)
 
 	if err := server.Start(":1323"); err != nil {
 		log.Fatalf("server startup failed: %v", err)
 	}
 }
 
-func WaitForScanRequests(conf *core.Config) {
+func WaitForImageEvents(conf *core.Config) {
 	go func() {
 		for {
-			image := <-conf.ImageUpEvents
-			report := cve.Scan(image)
-
-			imageId := report.Source.Target.ImageID
-			id, err := img.Status(conf.DbConn, imageId, image, img.StatusUp)
-			if err != nil {
-				log.Error(err)
-				continue
+			imageEvent := <-conf.ImageEvents
+			if imageEvent.Type == core.ImageUp {
+				if err := ProcessImageUp(conf, imageEvent.Image); err != nil {
+					log.Error(err)
+				}
+			} else {
+				if err := ProcessImageDown(conf, imageEvent.Image); err != nil {
+					log.Error(err)
+				}
 			}
-
-			pickId, err := img.PickId(conf.DbConn, imageId)
-
-			if id != pickId {
-				log.Infof("image '%s' scan report does not need to be updated repeatedly")
-				continue
-			}
-
-			exists, err := img.Exists(conf.DbConn, imageId)
-			if err != nil {
-				log.Error(err)
-				continue
-			}
-
-			if exists {
-				log.Infof("image '%s' scan report already exists", imageId)
-				continue
-			}
-
-			if len(report.Matches) == 0 {
-				log.Info("no vulnerabilities found")
-			}
-
-			log.Info("start saving scan results")
-
-			err = cve.Insert(conf.DbConn, report)
-			if err != nil {
-				log.Error(err)
-				continue
-			}
-
-			log.Infof("scan results of '%v' has been saved", imageId)
 		}
 	}()
+}
+
+func ProcessImageUp(conf *core.Config, image string) error {
+	report := service.Scan(image)
+
+	if len(report.Matches) == 0 {
+		log.Info("no vulnerabilities found")
+	}
+
+	imageId := report.Source.Target.ImageID
+	log.Info("start saving scan results")
+	service.Insert(conf, report)
+	log.Infof("scan results of '%v' has been saved", imageId)
+	return db.UpdateImageUsage(conf, imageId, core.ImageUp)
+}
+
+func ProcessImageDown(conf *core.Config, image string) error {
+	report := service.Scan(image)
+
+	imageId := report.Source.Target.ImageID
+	return db.UpdateImageUsage(conf, imageId, core.ImageDown)
 }
 
 func ErrorHandler(err error, ctx echo.Context) {

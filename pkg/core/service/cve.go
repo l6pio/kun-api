@@ -1,0 +1,131 @@
+package service
+
+import (
+	"bytes"
+	"encoding/json"
+	"github.com/labstack/gommon/log"
+	"l6p.io/kun/api/pkg/core"
+	"l6p.io/kun/api/pkg/core/db"
+	dbvo "l6p.io/kun/api/pkg/core/db/vo"
+	"l6p.io/kun/api/pkg/core/service/vo"
+	"os/exec"
+	"strconv"
+)
+
+var VulSeverity = map[string]int64{
+	"High":       4,
+	"Medium":     3,
+	"Low":        2,
+	"Negligible": 1,
+	"Unknown":    0,
+}
+
+var VulFixState = map[string]int64{
+	"fixed":     3,
+	"not-fixed": 2,
+	"wont-fix":  1,
+	"unknown":   0,
+}
+
+func Scan(image string) *vo.Report {
+	log.Infof("preparing to scan the image: %s", image)
+
+	var buildOut bytes.Buffer
+	buildCmd := exec.Command("grype", image, "-o=json")
+	buildCmd.Dir = "/usr/local/bin/"
+	buildCmd.Stdout = &buildOut
+	buildCmd.Stderr = &buildOut
+
+	if err := buildCmd.Run(); err != nil {
+		log.Errorf("CVE scanning failed for '%s': %v", image, err)
+		return nil
+	}
+
+	log.Info("scanning completed")
+
+	var report vo.Report
+	if err := json.Unmarshal(buildOut.Bytes(), &report); err != nil {
+		log.Errorf("scan result parsing failed: %v", err)
+		return nil
+	}
+
+	return &report
+}
+
+func Insert(conf *core.Config, report *vo.Report) {
+	for _, m := range report.Matches {
+		cvssVersion := 0.0
+		cvssBaseScore := 0.0
+		cvssExploitScore := 0.0
+		cvssImpactScore := 0.0
+
+		for _, cvss := range m.Vulnerability.Cvss {
+			version, err := strconv.ParseFloat(cvss.Version, 64)
+			if err != nil {
+				continue
+			}
+
+			if version > cvssVersion {
+				cvssVersion = version
+				cvssBaseScore = cvss.Metrics.BaseScore
+				cvssExploitScore = cvss.Metrics.ExploitabilityScore
+				cvssImpactScore = cvss.Metrics.ImpactScore
+			}
+		}
+
+		img := dbvo.Image{
+			Id:   report.Source.Target.ImageID,
+			Name: report.Source.Target.UserInput,
+			Size: report.Source.Target.ImageSize,
+		}
+
+		art := dbvo.Artifact{
+			Name:     m.Artifact.Name,
+			Version:  m.Artifact.Version,
+			Type:     m.Artifact.Type,
+			Language: m.Artifact.Language,
+			Licenses: m.Artifact.Licenses,
+			Cpes:     m.Artifact.Cpes,
+			Purl:     m.Artifact.Purl,
+		}
+
+		vul := dbvo.Vulnerability{
+			Id:               m.Vulnerability.ID,
+			DataSource:       m.Vulnerability.DataSource,
+			Namespace:        m.Vulnerability.Namespace,
+			Severity:         VulSeverity[m.Vulnerability.Severity],
+			Urls:             m.Vulnerability.Urls,
+			Description:      m.Vulnerability.Description,
+			FixVersions:      m.Vulnerability.Fix.Versions,
+			FixState:         VulFixState[m.Vulnerability.Fix.State],
+			CvssVersion:      cvssVersion,
+			CvssBaseScore:    cvssBaseScore,
+			CvssExploitScore: cvssExploitScore,
+			CvssImpactScore:  cvssImpactScore,
+		}
+
+		if err := db.SaveImage(conf, &img); err != nil {
+			log.Error(err)
+			continue
+		}
+
+		if err := db.SaveArtifact(conf, &art); err != nil {
+			log.Error(err)
+			continue
+		}
+
+		if err := db.SaveVulnerability(conf, &vul); err != nil {
+			log.Error(err)
+			continue
+		}
+
+		if err := db.SaveCve(conf, &dbvo.Cve{
+			ImgId:      img.Id,
+			ArtName:    art.Name,
+			ArtVersion: art.Version,
+			VulId:      vul.Id,
+		}); err != nil {
+			log.Error(err)
+		}
+	}
+}
