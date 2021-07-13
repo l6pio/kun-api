@@ -2,7 +2,10 @@ package service
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"github.com/labstack/gommon/log"
 	"l6p.io/kun/api/pkg/core"
 	"l6p.io/kun/api/pkg/core/db"
@@ -80,6 +83,7 @@ func Insert(conf *core.Config, report *vo.Report) {
 		}
 
 		art := dbvo.Artifact{
+			Id:       convertToId(fmt.Sprintf("%s:%s", m.Artifact.Name, m.Artifact.Version)),
 			Name:     m.Artifact.Name,
 			Version:  m.Artifact.Version,
 			Type:     m.Artifact.Type,
@@ -120,12 +124,17 @@ func Insert(conf *core.Config, report *vo.Report) {
 		}
 
 		if err := db.SaveCve(conf, &dbvo.Cve{
-			ImgId:      img.Id,
-			ArtName:    art.Name,
-			ArtVersion: art.Version,
-			VulId:      vul.Id,
+			ImgId: img.Id,
+			ArtId: art.Id,
+			VulId: vul.Id,
 		}); err != nil {
 			log.Error(err)
 		}
 	}
+}
+
+func convertToId(src string) string {
+	sha := sha256.New()
+	sha.Write([]byte(src))
+	return hex.EncodeToString(sha.Sum(nil))
 }

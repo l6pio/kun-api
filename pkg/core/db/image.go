@@ -14,7 +14,19 @@ func ListAllImages(conf *core.Config, page int, order string) (*Paging, error) {
 	}
 	defer session.Close()
 
-	return (&Paging{}).Do(col.Find(bson.M{}), page, order)
+	return (&Paging{}).DoQuery(col.Find(bson.M{}), page, order)
+}
+
+func FindImageById(conf *core.Config, id string) (interface{}, error) {
+	session, col, err := GetCol(conf, "image")
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+
+	var ret interface{}
+	err = col.Find(bson.M{"id": id}).One(&ret)
+	return ret, err
 }
 
 func SaveImage(conf *core.Config, img *vo.Image) error {

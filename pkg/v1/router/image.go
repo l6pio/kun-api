@@ -17,7 +17,43 @@ func ImageRouter(group *echo.Group) {
 		if err != nil {
 			return err
 		}
+		return ctx.JSON(http.StatusOK, ret)
+	})
 
+	group.GET("/:p1", func(ctx echo.Context) error {
+		conf := ctx.Get("config").(*core.Config)
+		id := ctx.Param("p1")
+
+		ret, err := db.FindImageById(conf, id)
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, ret)
+	})
+
+	group.GET("/:p1/artifact", func(ctx echo.Context) error {
+		conf := ctx.Get("config").(*core.Config)
+		id := ctx.Param("p1")
+		page := IntParam(ctx, "page")
+		order := OrderParam(ctx, "order", "name")
+
+		ret, err := db.FindArtifactByImageId(conf, id, page, order)
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, ret)
+	})
+
+	group.GET("/:p1/vulnerability", func(ctx echo.Context) error {
+		conf := ctx.Get("config").(*core.Config)
+		id := ctx.Param("p1")
+		page := IntParam(ctx, "page")
+		order := OrderParam(ctx, "order", "name")
+
+		ret, err := db.FindVulnerabilityByImageId(conf, id, page, order)
+		if err != nil {
+			return err
+		}
 		return ctx.JSON(http.StatusOK, ret)
 	})
 

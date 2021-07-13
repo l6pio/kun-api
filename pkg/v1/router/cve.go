@@ -17,7 +17,6 @@ func CveRouter(group *echo.Group) {
 		if err != nil {
 			return err
 		}
-
 		return ctx.JSON(http.StatusOK, ret)
 	})
 }

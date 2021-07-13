@@ -1,2 +1,5 @@
 #!/usr/bin/env sh
-exec /kun-api --clickhouse-addr "${CLICKHOUSE_ADDR}"
+exec /kun-api \
+  --mongodb-addr "${MONGODB_ADDR}" \
+  --mongodb-user "${MONGODB_USER}" \
+  --mongodb-pass "${MONGODB_PASS}"

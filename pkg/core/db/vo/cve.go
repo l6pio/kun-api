@@ -1,8 +1,7 @@
 package vo
 
 type Cve struct {
-	ImgId      string `json:"imgId" bson:"imgId"`
-	ArtName    string `json:"artName" bson:"artName"`
-	ArtVersion string `json:"artVersion" bson:"artVersion"`
-	VulId      string `json:"vulId" bson:"vulId"`
+	ImgId string `json:"imgId" bson:"imgId"`
+	ArtId string `json:"artId" bson:"artId"`
+	VulId string `json:"vulId" bson:"vulId"`
 }

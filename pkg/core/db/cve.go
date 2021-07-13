@@ -14,10 +14,9 @@ func SaveCve(conf *core.Config, cve *vo.Cve) error {
 	defer session.Close()
 
 	_, err = col.Upsert(bson.M{
-		"imgId":      cve.ImgId,
-		"artName":    cve.ArtName,
-		"artVersion": cve.ArtVersion,
-		"vulId":      cve.VulId,
+		"imgId": cve.ImgId,
+		"artId": cve.ArtId,
+		"vulId": cve.VulId,
 	}, bson.M{"$setOnInsert": cve})
 	return err
 }

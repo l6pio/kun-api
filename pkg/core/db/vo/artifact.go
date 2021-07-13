@@ -1,6 +1,7 @@
 package vo
 
 type Artifact struct {
+	Id       string   `json:"id" bson:"id"`
 	Name     string   `json:"name" bson:"name"`
 	Version  string   `json:"version" bson:"version"`
 	Type     string   `json:"type" bson:"type"`

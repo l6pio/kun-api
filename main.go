@@ -14,15 +14,15 @@ import (
 )
 
 func main() {
-	var mongoAddr string
-	var mongoUser string
-	var mongoPass string
-	flag.StringVar(&mongoAddr, "mongoAddr", "localhost:32017", "The mongodb connection address")
-	flag.StringVar(&mongoUser, "mongoUser", "root", "The mongodb username")
-	flag.StringVar(&mongoPass, "mongoPass", "rootpassword", "The mongodb password")
+	var mongodbAddr string
+	var mongodbUser string
+	var mongodbPass string
+	flag.StringVar(&mongodbAddr, "mongodb-addr", "localhost:32017", "The mongodb connection address")
+	flag.StringVar(&mongodbUser, "mongodb-user", "root", "The mongodb username")
+	flag.StringVar(&mongodbPass, "mongodb-pass", "rootpassword", "The mongodb password")
 	flag.Parse()
 
-	conf := core.NewConfig(mongoAddr, mongoUser, mongoPass)
+	conf := core.NewConfig(mongodbAddr, mongodbUser, mongodbPass)
 
 	server := echo.New()
 	server.HideBanner = true
@@ -36,7 +36,7 @@ func main() {
 
 	apiV1 := server.Group("/api/v1")
 	router.PingRouter(apiV1.Group("/ping"))
-	router.ImageRouter(apiV1.Group("/img"))
+	router.ImageRouter(apiV1.Group("/image"))
 	router.CveRouter(apiV1.Group("/cve"))
 
 	server.HTTPErrorHandler = ErrorHandler
