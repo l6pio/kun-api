@@ -29,6 +29,52 @@ func FindImageById(conf *core.Config, id string) (interface{}, error) {
 	return ret, err
 }
 
+func FindImageByArtifactId(conf *core.Config, id string, page int, order string) (interface{}, error) {
+	session, col, err := GetCol(conf, "cve")
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+
+	var stages []bson.M
+	stages = append(stages,
+		bson.M{"$match": bson.M{"artId": id}},
+		bson.M{"$lookup": bson.M{
+			"from":         "image",
+			"localField":   "imgId",
+			"foreignField": "id",
+			"as":           "img",
+		}},
+		bson.M{"$unwind": "$img"},
+		bson.M{"$group": bson.M{"_id": "$img"}},
+		bson.M{"$replaceRoot": bson.M{"newRoot": "$_id"}},
+	)
+	return (&Paging{}).DoPipe(col, stages, page, order)
+}
+
+func FindImageByCveId(conf *core.Config, id string, page int, order string) (interface{}, error) {
+	session, col, err := GetCol(conf, "cve")
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+
+	var stages []bson.M
+	stages = append(stages,
+		bson.M{"$match": bson.M{"vulId": id}},
+		bson.M{"$lookup": bson.M{
+			"from":         "image",
+			"localField":   "imgId",
+			"foreignField": "id",
+			"as":           "img",
+		}},
+		bson.M{"$unwind": "$img"},
+		bson.M{"$group": bson.M{"_id": "$img"}},
+		bson.M{"$replaceRoot": bson.M{"newRoot": "$_id"}},
+	)
+	return (&Paging{}).DoPipe(col, stages, page, order)
+}
+
 func SaveImage(conf *core.Config, img *vo.Image) error {
 	session, col, err := GetCol(conf, "image")
 	if err != nil {

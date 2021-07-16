@@ -37,6 +37,7 @@ func main() {
 	apiV1 := server.Group("/api/v1")
 	router.PingRouter(apiV1.Group("/ping"))
 	router.ImageRouter(apiV1.Group("/image"))
+	router.ArtifactRouter(apiV1.Group("/artifact"))
 	router.CveRouter(apiV1.Group("/cve"))
 
 	server.HTTPErrorHandler = ErrorHandler

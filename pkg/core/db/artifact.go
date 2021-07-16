@@ -6,6 +6,28 @@ import (
 	"l6p.io/kun/api/pkg/core/db/vo"
 )
 
+func ListAllArtifacts(conf *core.Config, page int, order string) (*Paging, error) {
+	session, col, err := GetCol(conf, "artifact")
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+
+	return (&Paging{}).DoQuery(col.Find(bson.M{}), page, order)
+}
+
+func FindArtifactById(conf *core.Config, id string) (interface{}, error) {
+	session, col, err := GetCol(conf, "artifact")
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+
+	var ret interface{}
+	err = col.Find(bson.M{"id": id}).One(&ret)
+	return ret, err
+}
+
 func FindArtifactByImageId(conf *core.Config, id string, page int, order string) (interface{}, error) {
 	session, col, err := GetCol(conf, "cve")
 	if err != nil {
@@ -16,6 +38,29 @@ func FindArtifactByImageId(conf *core.Config, id string, page int, order string)
 	var stages []bson.M
 	stages = append(stages,
 		bson.M{"$match": bson.M{"imgId": id}},
+		bson.M{"$lookup": bson.M{
+			"from":         "artifact",
+			"localField":   "artId",
+			"foreignField": "id",
+			"as":           "art",
+		}},
+		bson.M{"$unwind": "$art"},
+		bson.M{"$group": bson.M{"_id": "$art"}},
+		bson.M{"$replaceRoot": bson.M{"newRoot": "$_id"}},
+	)
+	return (&Paging{}).DoPipe(col, stages, page, order)
+}
+
+func FindArtifactByCveId(conf *core.Config, id string, page int, order string) (interface{}, error) {
+	session, col, err := GetCol(conf, "cve")
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+
+	var stages []bson.M
+	stages = append(stages,
+		bson.M{"$match": bson.M{"vulId": id}},
 		bson.M{"$lookup": bson.M{
 			"from":         "artifact",
 			"localField":   "artId",
