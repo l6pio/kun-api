@@ -6,28 +6,6 @@ import (
 	"l6p.io/kun/api/pkg/core/db/vo"
 )
 
-func ListAllArtifacts(conf *core.Config, page int, order string) (*Paging, error) {
-	session, col, err := GetCol(conf, "artifact")
-	if err != nil {
-		return nil, err
-	}
-	defer session.Close()
-
-	return (&Paging{}).DoQuery(col.Find(bson.M{}), page, order)
-}
-
-func FindArtifactById(conf *core.Config, id string) (interface{}, error) {
-	session, col, err := GetCol(conf, "artifact")
-	if err != nil {
-		return nil, err
-	}
-	defer session.Close()
-
-	var ret interface{}
-	err = col.Find(bson.M{"id": id}).One(&ret)
-	return ret, err
-}
-
 func FindArtifactByImageId(conf *core.Config, id string, page int, order string) (interface{}, error) {
 	session, col, err := GetCol(conf, "cve")
 	if err != nil {

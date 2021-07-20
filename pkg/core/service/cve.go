@@ -16,6 +16,7 @@ import (
 )
 
 var VulSeverity = map[string]int64{
+	"Critical":   5,
 	"High":       4,
 	"Medium":     3,
 	"Low":        2,
@@ -57,12 +58,25 @@ func Scan(image string) *vo.Report {
 
 func Insert(conf *core.Config, report *vo.Report) {
 	for _, m := range report.Matches {
+		vulnerability := m.Vulnerability
+		if vulnerability.Namespace != "nvd" {
+			for _, rv := range m.RelatedVulnerabilities {
+				if rv.ID == m.Vulnerability.ID && rv.Namespace == "nvd" {
+					vulnerability = rv
+				}
+			}
+		}
+
+		if vulnerability.Namespace != "nvd" {
+			continue
+		}
+
 		cvssVersion := 0.0
 		cvssBaseScore := 0.0
 		cvssExploitScore := 0.0
 		cvssImpactScore := 0.0
 
-		for _, cvss := range m.Vulnerability.Cvss {
+		for _, cvss := range vulnerability.Cvss {
 			version, err := strconv.ParseFloat(cvss.Version, 64)
 			if err != nil {
 				continue
@@ -94,12 +108,12 @@ func Insert(conf *core.Config, report *vo.Report) {
 		}
 
 		vul := dbvo.Vulnerability{
-			Id:               m.Vulnerability.ID,
-			DataSource:       m.Vulnerability.DataSource,
-			Namespace:        m.Vulnerability.Namespace,
-			Severity:         VulSeverity[m.Vulnerability.Severity],
-			Urls:             m.Vulnerability.Urls,
-			Description:      m.Vulnerability.Description,
+			Id:               vulnerability.ID,
+			DataSource:       vulnerability.DataSource,
+			Namespace:        vulnerability.Namespace,
+			Severity:         VulSeverity[vulnerability.Severity],
+			Urls:             vulnerability.Urls,
+			Description:      vulnerability.Description,
 			FixVersions:      m.Vulnerability.Fix.Versions,
 			FixState:         VulFixState[m.Vulnerability.Fix.State],
 			CvssVersion:      cvssVersion,

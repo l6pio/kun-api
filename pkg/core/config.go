@@ -12,16 +12,17 @@ type Config struct {
 	ImageEvents  chan ImageEvent
 }
 
-type ImageEventType int
+type ImageStatus int
 
 const (
-	ImageUp   ImageEventType = 1
-	ImageDown ImageEventType = 0
+	ImageUp   ImageStatus = 1
+	ImageDown ImageStatus = 0
 )
 
 type ImageEvent struct {
-	Type  ImageEventType
-	Image string
+	Timestamp int64        `json:"timestamp" validate:"required"`
+	Image     string       `json:"image" validate:"required"`
+	Status    *ImageStatus `json:"status" validate:"required"`
 }
 
 func NewConfig(mongoAddr, mongoUser, mongoPass string) *Config {

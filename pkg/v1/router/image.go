@@ -57,13 +57,32 @@ func ImageRouter(group *echo.Group) {
 		return ctx.JSON(http.StatusOK, ret)
 	})
 
+	group.GET("/:p1/vulnerability/count", func(ctx echo.Context) error {
+		conf := ctx.Get("config").(*core.Config)
+		id := ctx.Param("p1")
+
+		ret, err := db.FindVulnerabilityByImageId(conf, id, 0, "")
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, ret.(*db.Paging).Count)
+	})
+
+	group.GET("/:p1/timeline", func(ctx echo.Context) error {
+		conf := ctx.Get("config").(*core.Config)
+		id := ctx.Param("p1")
+
+		ret, err := db.FindImageTimelineById(conf, id)
+		if err != nil {
+			return err
+		}
+		return ctx.JSON(http.StatusOK, ret)
+	})
+
 	group.POST("/status", func(ctx echo.Context) error {
 		conf := ctx.Get("config").(*core.Config)
 
-		data := new(struct {
-			Image  string `json:"image" validate:"required"`
-			Status *int64 `json:"status" validate:"required"`
-		})
+		data := new(core.ImageEvent)
 		if err := ctx.Bind(data); err != nil {
 			return err
 		}
@@ -72,10 +91,7 @@ func ImageRouter(group *echo.Group) {
 			return err
 		}
 
-		conf.ImageEvents <- core.ImageEvent{
-			Type:  core.ImageEventType(*data.Status),
-			Image: data.Image,
-		}
+		conf.ImageEvents <- *data
 		return ctx.NoContent(http.StatusOK)
 	})
 }

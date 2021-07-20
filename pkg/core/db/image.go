@@ -29,27 +29,30 @@ func FindImageById(conf *core.Config, id string) (interface{}, error) {
 	return ret, err
 }
 
-func FindImageByArtifactId(conf *core.Config, id string, page int, order string) (interface{}, error) {
-	session, col, err := GetCol(conf, "cve")
+func FindImageTimelineById(conf *core.Config, id string) ([]interface{}, error) {
+	session, col, err := GetCol(conf, "image-event")
 	if err != nil {
 		return nil, err
 	}
 	defer session.Close()
 
+	var ret []interface{}
 	var stages []bson.M
 	stages = append(stages,
-		bson.M{"$match": bson.M{"artId": id}},
-		bson.M{"$lookup": bson.M{
-			"from":         "image",
-			"localField":   "imgId",
-			"foreignField": "id",
-			"as":           "img",
+		bson.M{"$match": bson.M{"id": id}},
+		bson.M{"$group": bson.M{
+			"_id": bson.M{
+				"$subtract": []bson.M{
+					{"$toLong": "$timestamp"},
+					{"$mod": []interface{}{bson.M{"$toLong": "$timestamp"}, 1000 * 60}},
+				},
+			},
+			"count": bson.M{"$sum": "$status"},
 		}},
-		bson.M{"$unwind": "$img"},
-		bson.M{"$group": bson.M{"_id": "$img"}},
-		bson.M{"$replaceRoot": bson.M{"newRoot": "$_id"}},
+		bson.M{"$addFields": bson.M{"timestamp": "$_id"}},
 	)
-	return (&Paging{}).DoPipe(col, stages, page, order)
+	err = col.Pipe(stages).All(&ret)
+	return ret, err
 }
 
 func FindImageByCveId(conf *core.Config, id string, page int, order string) (interface{}, error) {
@@ -86,7 +89,17 @@ func SaveImage(conf *core.Config, img *vo.Image) error {
 	return err
 }
 
-func UpdateImageUsage(conf *core.Config, imageId string, status core.ImageEventType) error {
+func SaveImageStatus(conf *core.Config, timestamp int64, id string, status core.ImageStatus) error {
+	session, col, err := GetCol(conf, "image-event")
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	return col.Insert(bson.M{"timestamp": timestamp, "id": id, "status": status})
+}
+
+func UpdateImageUsage(conf *core.Config, imageId string, status core.ImageStatus) error {
 	session, col, err := GetCol(conf, "image")
 	if err != nil {
 		return err

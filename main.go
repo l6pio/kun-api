@@ -54,12 +54,12 @@ func WaitForImageEvents(conf *core.Config) {
 	go func() {
 		for {
 			imageEvent := <-conf.ImageEvents
-			if imageEvent.Type == core.ImageUp {
-				if err := ProcessImageUp(conf, imageEvent.Image); err != nil {
+			if *imageEvent.Status == core.ImageUp {
+				if err := ProcessImageUp(conf, imageEvent); err != nil {
 					log.Error(err)
 				}
 			} else {
-				if err := ProcessImageDown(conf, imageEvent.Image); err != nil {
+				if err := ProcessImageDown(conf, imageEvent); err != nil {
 					log.Error(err)
 				}
 			}
@@ -67,24 +67,31 @@ func WaitForImageEvents(conf *core.Config) {
 	}()
 }
 
-func ProcessImageUp(conf *core.Config, image string) error {
-	report := service.Scan(image)
+func ProcessImageUp(conf *core.Config, event core.ImageEvent) error {
+	report := service.Scan(event.Image)
 
 	if len(report.Matches) == 0 {
 		log.Info("no vulnerabilities found")
 	}
 
 	imageId := report.Source.Target.ImageID
+	if err := db.SaveImageStatus(conf, event.Timestamp, imageId, *event.Status); err != nil {
+		log.Error(err)
+	}
+
 	log.Info("start saving scan results")
 	service.Insert(conf, report)
 	log.Infof("scan results of '%v' has been saved", imageId)
 	return db.UpdateImageUsage(conf, imageId, core.ImageUp)
 }
 
-func ProcessImageDown(conf *core.Config, image string) error {
-	report := service.Scan(image)
+func ProcessImageDown(conf *core.Config, event core.ImageEvent) error {
+	report := service.Scan(event.Image)
 
 	imageId := report.Source.Target.ImageID
+	if err := db.SaveImageStatus(conf, event.Timestamp, imageId, *event.Status); err != nil {
+		log.Error(err)
+	}
 	return db.UpdateImageUsage(conf, imageId, core.ImageDown)
 }
 

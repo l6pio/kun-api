@@ -98,7 +98,10 @@ func (p *Paging) DoPipe(col *mgo.Collection, stages []bson.M, page int, order st
 		func() ([]interface{}, error) {
 			var slice []interface{}
 
-			stages = append(stages, bson.M{"$sort": ToSort(order)})
+			if order != "" {
+				stages = append(stages, bson.M{"$sort": ToSort(order)})
+			}
+
 			if p.Page == 0 {
 				p.Page = 1
 				err := col.Pipe(stages).All(&slice)
