@@ -145,6 +145,22 @@ func Insert(conf *core.Config, report *vo.Report) {
 	}
 }
 
+func UpdateVulnerabilityDatabase() error {
+	var buildOut bytes.Buffer
+	buildCmd := exec.Command("grype", "db", "update")
+	buildCmd.Dir = "/usr/local/bin/"
+	buildCmd.Stdout = &buildOut
+	buildCmd.Stderr = &buildOut
+
+	if err := buildCmd.Run(); err != nil {
+		log.Errorf("update vulnerability database failed: %v", err)
+		return err
+	}
+	log.Info(string(buildOut.Bytes()))
+	log.Info("update vulnerability database completed")
+	return nil
+}
+
 func convertToId(src string) string {
 	sha := sha256.New()
 	sha.Write([]byte(src))

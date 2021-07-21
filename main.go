@@ -11,6 +11,7 @@ import (
 	"l6p.io/kun/api/pkg/core/service"
 	"l6p.io/kun/api/pkg/v1/router"
 	"net/http"
+	"time"
 )
 
 func main() {
@@ -41,6 +42,8 @@ func main() {
 	router.CveRouter(apiV1.Group("/cve"))
 
 	server.HTTPErrorHandler = ErrorHandler
+
+	go PeriodicallyUpdateVulnerabilityDatabase()
 
 	// Read and process CVE scan requests
 	WaitForImageEvents(conf)
@@ -99,6 +102,17 @@ func ProcessImageDown(conf *core.Config, event core.ImageEvent) error {
 		return err
 	}
 	return db.UpdateImageUsage(conf, imageId, core.ImageDown)
+}
+
+func PeriodicallyUpdateVulnerabilityDatabase() {
+	t := time.NewTicker(time.Hour)
+	defer t.Stop()
+	for {
+		if err := service.UpdateVulnerabilityDatabase(); err != nil {
+			log.Error(err)
+		}
+		<-t.C
+	}
 }
 
 func ErrorHandler(err error, ctx echo.Context) {
