@@ -31,7 +31,7 @@ var VulFixState = map[string]int64{
 	"unknown":   0,
 }
 
-func Scan(image string) *vo.Report {
+func Scan(image string) (*vo.Report, error) {
 	log.Infof("preparing to scan the image: %s", image)
 
 	var buildOut bytes.Buffer
@@ -42,22 +42,32 @@ func Scan(image string) *vo.Report {
 
 	if err := buildCmd.Run(); err != nil {
 		log.Errorf("CVE scanning failed for '%s': %v", image, err)
-		return nil
+		return nil, err
 	}
-
 	log.Info("scanning completed")
 
 	var report vo.Report
 	if err := json.Unmarshal(buildOut.Bytes(), &report); err != nil {
 		log.Errorf("scan result parsing failed: %v", err)
-		return nil
+		return nil, err
 	}
-
-	return &report
+	return &report, nil
 }
 
 func Insert(conf *core.Config, report *vo.Report) {
+	img := dbvo.Image{
+		Id:   report.Source.Target.ImageID,
+		Name: report.Source.Target.UserInput,
+		Size: report.Source.Target.ImageSize,
+	}
+
+	if err := db.SaveImage(conf, &img); err != nil {
+		log.Error(err)
+		return
+	}
+
 	for _, m := range report.Matches {
+		// The namespace for the vulnerability is required to come from "nvd".
 		vulnerability := m.Vulnerability
 		if vulnerability.Namespace != "nvd" {
 			for _, rv := range m.RelatedVulnerabilities {
@@ -66,7 +76,6 @@ func Insert(conf *core.Config, report *vo.Report) {
 				}
 			}
 		}
-
 		if vulnerability.Namespace != "nvd" {
 			continue
 		}
@@ -88,12 +97,6 @@ func Insert(conf *core.Config, report *vo.Report) {
 				cvssExploitScore = cvss.Metrics.ExploitabilityScore
 				cvssImpactScore = cvss.Metrics.ImpactScore
 			}
-		}
-
-		img := dbvo.Image{
-			Id:   report.Source.Target.ImageID,
-			Name: report.Source.Target.UserInput,
-			Size: report.Source.Target.ImageSize,
 		}
 
 		art := dbvo.Artifact{
@@ -120,11 +123,6 @@ func Insert(conf *core.Config, report *vo.Report) {
 			CvssBaseScore:    cvssBaseScore,
 			CvssExploitScore: cvssExploitScore,
 			CvssImpactScore:  cvssImpactScore,
-		}
-
-		if err := db.SaveImage(conf, &img); err != nil {
-			log.Error(err)
-			continue
 		}
 
 		if err := db.SaveArtifact(conf, &art); err != nil {

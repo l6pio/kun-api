@@ -68,7 +68,10 @@ func WaitForImageEvents(conf *core.Config) {
 }
 
 func ProcessImageUp(conf *core.Config, event core.ImageEvent) error {
-	report := service.Scan(event.Image)
+	report, err := service.Scan(event.Image)
+	if err != nil {
+		return err
+	}
 
 	if len(report.Matches) == 0 {
 		log.Info("no vulnerabilities found")
@@ -76,7 +79,7 @@ func ProcessImageUp(conf *core.Config, event core.ImageEvent) error {
 
 	imageId := report.Source.Target.ImageID
 	if err := db.SaveImageStatus(conf, event.Timestamp, imageId, *event.Status); err != nil {
-		log.Error(err)
+		return err
 	}
 
 	log.Info("start saving scan results")
@@ -86,11 +89,14 @@ func ProcessImageUp(conf *core.Config, event core.ImageEvent) error {
 }
 
 func ProcessImageDown(conf *core.Config, event core.ImageEvent) error {
-	report := service.Scan(event.Image)
+	report, err := service.Scan(event.Image)
+	if err != nil {
+		return err
+	}
 
 	imageId := report.Source.Target.ImageID
 	if err := db.SaveImageStatus(conf, event.Timestamp, imageId, *event.Status); err != nil {
-		log.Error(err)
+		return err
 	}
 	return db.UpdateImageUsage(conf, imageId, core.ImageDown)
 }
