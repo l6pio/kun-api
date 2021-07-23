@@ -11,19 +11,20 @@ import (
 	"l6p.io/kun/api/pkg/core/service"
 	"l6p.io/kun/api/pkg/v1/router"
 	"net/http"
-	"time"
 )
 
 func main() {
-	var mongodbAddr string
-	var mongodbUser string
-	var mongodbPass string
-	flag.StringVar(&mongodbAddr, "mongodb-addr", "localhost:32017", "The mongodb connection address")
-	flag.StringVar(&mongodbUser, "mongodb-user", "root", "The mongodb username")
-	flag.StringVar(&mongodbPass, "mongodb-pass", "rootpassword", "The mongodb password")
+	var mongodbAddr = flag.String("mongodb-addr", "localhost:32017", "The mongodb connection address")
+	var mongodbUser = flag.String("mongodb-user", "root", "The mongodb username")
+	var mongodbPass = flag.String("mongodb-pass", "rootpassword", "The mongodb password")
+	var master = flag.String("master", "", "the address of the Kubernetes API server.")
+	var kubeConfig = flag.String("kubeconfig", "", "path to a kubeconfig.")
 	flag.Parse()
 
-	conf := core.NewConfig(mongodbAddr, mongodbUser, mongodbPass)
+	conf, err := core.NewConfig(*mongodbAddr, *mongodbUser, *mongodbPass, *master, *kubeConfig)
+	if err != nil {
+		log.Fatalf("initialization of configuration failed: %v", err)
+	}
 
 	server := echo.New()
 	server.HideBanner = true
@@ -43,75 +44,15 @@ func main() {
 
 	server.HTTPErrorHandler = ErrorHandler
 
-	go PeriodicallyUpdateVulnerabilityDatabase()
+	if err := db.CleanAllImagePods(conf); err != nil {
+		log.Fatalf("initialization of database failed: %v", err)
+	}
 
-	// Read and process CVE scan requests
-	WaitForImageEvents(conf)
+	go service.PeriodicallyUpdateVulnerabilityDatabase()
+	go service.StartPodInformer(conf)
 
 	if err := server.Start(":1323"); err != nil {
 		log.Fatalf("server startup failed: %v", err)
-	}
-}
-
-func WaitForImageEvents(conf *core.Config) {
-	go func() {
-		for {
-			imageEvent := <-conf.ImageEvents
-			if *imageEvent.Status == core.ImageUp {
-				if err := ProcessImageUp(conf, imageEvent); err != nil {
-					log.Error(err)
-				}
-			} else {
-				if err := ProcessImageDown(conf, imageEvent); err != nil {
-					log.Error(err)
-				}
-			}
-		}
-	}()
-}
-
-func ProcessImageUp(conf *core.Config, event core.ImageEvent) error {
-	report, err := service.Scan(event.Image)
-	if err != nil {
-		return err
-	}
-
-	if len(report.Matches) == 0 {
-		log.Info("no vulnerabilities found")
-	}
-
-	imageId := report.Source.Target.ImageID
-	if err := db.SaveImageStatus(conf, event.Timestamp, imageId, *event.Status); err != nil {
-		return err
-	}
-
-	log.Info("start saving scan results")
-	service.Insert(conf, report)
-	log.Infof("scan results of '%v' has been saved", imageId)
-	return db.UpdateImageUsage(conf, imageId, core.ImageUp)
-}
-
-func ProcessImageDown(conf *core.Config, event core.ImageEvent) error {
-	report, err := service.Scan(event.Image)
-	if err != nil {
-		return err
-	}
-
-	imageId := report.Source.Target.ImageID
-	if err := db.SaveImageStatus(conf, event.Timestamp, imageId, *event.Status); err != nil {
-		return err
-	}
-	return db.UpdateImageUsage(conf, imageId, core.ImageDown)
-}
-
-func PeriodicallyUpdateVulnerabilityDatabase() {
-	t := time.NewTicker(time.Hour)
-	defer t.Stop()
-	for {
-		if err := service.UpdateVulnerabilityDatabase(); err != nil {
-			log.Error(err)
-		}
-		<-t.C
 	}
 }
 

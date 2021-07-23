@@ -78,20 +78,4 @@ func ImageRouter(group *echo.Group) {
 		}
 		return ctx.JSON(http.StatusOK, ret)
 	})
-
-	group.POST("/status", func(ctx echo.Context) error {
-		conf := ctx.Get("config").(*core.Config)
-
-		data := new(core.ImageEvent)
-		if err := ctx.Bind(data); err != nil {
-			return err
-		}
-
-		if err := ctx.Validate(data); err != nil {
-			return err
-		}
-
-		conf.ImageEvents <- *data
-		return ctx.NoContent(http.StatusOK)
-	})
 }

@@ -17,6 +17,17 @@ func ListAllImages(conf *core.Config, page int, order string) (*Paging, error) {
 	return (&Paging{}).DoQuery(col.Find(bson.M{}), page, order)
 }
 
+func ImageExists(conf *core.Config, id string) (bool, error) {
+	session, col, err := GetCol(conf, "image")
+	if err != nil {
+		return false, err
+	}
+	defer session.Close()
+
+	count, err := col.Find(bson.M{"id": id}).Count()
+	return count > 0, err
+}
+
 func FindImageById(conf *core.Config, id string) (interface{}, error) {
 	session, col, err := GetCol(conf, "image")
 	if err != nil {
@@ -89,7 +100,7 @@ func SaveImage(conf *core.Config, img *vo.Image) error {
 	return err
 }
 
-func SaveImageStatus(conf *core.Config, timestamp int64, id string, status core.ImageStatus) error {
+func SaveImageStatus(conf *core.Config, timestamp int64, id string, status core.PodStatus) error {
 	session, col, err := GetCol(conf, "image-event")
 	if err != nil {
 		return err
@@ -99,20 +110,31 @@ func SaveImageStatus(conf *core.Config, timestamp int64, id string, status core.
 	return col.Insert(bson.M{"timestamp": timestamp, "id": id, "status": status})
 }
 
-func UpdateImageUsage(conf *core.Config, imageId string, status core.ImageStatus) error {
+func UpdateImagePods(conf *core.Config, imageId string, status core.PodStatus) error {
 	session, col, err := GetCol(conf, "image")
 	if err != nil {
 		return err
 	}
 	defer session.Close()
 
-	if status == core.ImageUp {
-		return col.Update(bson.M{"id": imageId}, bson.M{"$inc": bson.M{"usage": 1}})
+	if status == core.PodCreate {
+		return col.Update(bson.M{"id": imageId}, bson.M{"$inc": bson.M{"pods": 1}})
 	} else {
-		err := col.Update(bson.M{"id": imageId, "usage": bson.M{"$gt": 0}}, bson.M{"$inc": bson.M{"usage": -1}})
+		err := col.Update(bson.M{"id": imageId, "pods": bson.M{"$gt": 0}}, bson.M{"$inc": bson.M{"pods": -1}})
 		if err != mgo.ErrNotFound {
 			return err
 		}
 		return nil
 	}
+}
+
+func CleanAllImagePods(conf *core.Config) error {
+	session, col, err := GetCol(conf, "image")
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	_, err = col.UpdateAll(bson.M{}, bson.M{"$set": bson.M{"pods": 0}})
+	return err
 }

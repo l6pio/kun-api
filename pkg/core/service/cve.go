@@ -13,6 +13,7 @@ import (
 	"l6p.io/kun/api/pkg/core/service/vo"
 	"os/exec"
 	"strconv"
+	"time"
 )
 
 var VulSeverity = map[string]int64{
@@ -54,9 +55,9 @@ func Scan(image string) (*vo.Report, error) {
 	return &report, nil
 }
 
-func Insert(conf *core.Config, report *vo.Report) {
+func Insert(conf *core.Config, imageId string, report *vo.Report) {
 	img := dbvo.Image{
-		Id:   report.Source.Target.ImageID,
+		Id:   imageId,
 		Name: report.Source.Target.UserInput,
 		Size: report.Source.Target.ImageSize,
 	}
@@ -159,6 +160,17 @@ func UpdateVulnerabilityDatabase() error {
 	log.Info(string(buildOut.Bytes()))
 	log.Info("update vulnerability database completed")
 	return nil
+}
+
+func PeriodicallyUpdateVulnerabilityDatabase() {
+	t := time.NewTicker(time.Hour)
+	defer t.Stop()
+	for {
+		if err := UpdateVulnerabilityDatabase(); err != nil {
+			log.Error(err)
+		}
+		<-t.C
+	}
 }
 
 func convertToId(src string) string {
