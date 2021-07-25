@@ -2,7 +2,7 @@ package service
 
 import (
 	"bytes"
-	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -174,7 +174,7 @@ func PeriodicallyUpdateVulnerabilityDatabase() {
 }
 
 func convertToId(src string) string {
-	sha := sha256.New()
+	sha := sha512.New()
 	sha.Write([]byte(src))
 	return hex.EncodeToString(sha.Sum(nil))
 }

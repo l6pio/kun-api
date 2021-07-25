@@ -90,7 +90,9 @@ func (p *Paging) DoPipe(col *mgo.Collection, stages []bson.M, page int, order st
 				bson.M{"$group": bson.M{"_id": "null", "count": bson.M{"$sum": 1}}},
 				bson.M{"$project": bson.M{"_id": 0}},
 			)).One(&countMap)
-			if err != nil {
+			if err == mgo.ErrNotFound {
+				return 0, nil
+			} else if err != nil {
 				return 0, err
 			}
 			return countMap["count"], nil

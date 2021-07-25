@@ -55,7 +55,7 @@ func FindImageTimelineById(conf *core.Config, id string) ([]interface{}, error) 
 			"_id": bson.M{
 				"$subtract": []bson.M{
 					{"$toLong": "$timestamp"},
-					{"$mod": []interface{}{bson.M{"$toLong": "$timestamp"}, 1000 * 60}},
+					{"$mod": []interface{}{bson.M{"$toLong": "$timestamp"}, 60 * 1000}},
 				},
 			},
 			"count": bson.M{"$sum": "$status"},

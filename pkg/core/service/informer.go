@@ -34,8 +34,8 @@ func (c *PodController) add(obj interface{}) {
 		log.Info(fmt.Sprintf("image '%s' is used to create pod '%s'", container.Image, pod.Name))
 		c.queue.Add(
 			&core.PodEvent{
-				Timestamp: time.Now().Unix(),
-				ImageId:   container.ImageID,
+				Timestamp: time.Now().UnixNano() / 1e6,
+				ImageId:   convertToId(container.ImageID),
 				Image:     container.Image,
 				Status:    core.PodCreate,
 			},
@@ -54,8 +54,8 @@ func (c *PodController) delete(obj interface{}) {
 		log.Info(fmt.Sprintf("the pod '%s' using image '%s' has been removed", pod.Name, container.Image))
 		c.queue.Add(
 			&core.PodEvent{
-				Timestamp: time.Now().Unix(),
-				ImageId:   container.ImageID,
+				Timestamp: time.Now().UnixNano() / 1e6,
+				ImageId:   convertToId(container.ImageID),
 				Image:     container.Image,
 				Status:    core.PodDelete,
 			},
