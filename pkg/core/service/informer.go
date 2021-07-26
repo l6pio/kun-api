@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"github.com/labstack/gommon/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -26,38 +25,43 @@ type PodController struct {
 	queue workqueue.RateLimitingInterface
 }
 
-func (c *PodController) add(obj interface{}) {
-	pod := obj.(*v1.Pod)
-	klog.V(4).InfoS("Adding pod", "pod", klog.KObj(pod))
-
-	for _, container := range pod.Status.ContainerStatuses {
-		log.Info(fmt.Sprintf("image '%s' is used to create pod '%s'", container.Image, pod.Name))
-		c.queue.Add(
-			&core.PodEvent{
-				Timestamp: time.Now().UnixNano() / 1e6,
-				ImageId:   convertToId(container.ImageID),
-				Image:     container.Image,
-				Status:    core.PodCreate,
-			},
-		)
+func (c *PodController) Add(obj interface{}) {
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		return
 	}
+	klog.V(4).InfoS("Adding pod", "pod", klog.KObj(pod))
+	c.pushEvent(pod, core.PodCreate)
 }
 
-func (c *PodController) delete(obj interface{}) {
+func (c *PodController) Delete(obj interface{}) {
 	pod, ok := obj.(*v1.Pod)
 	if !ok {
 		return
 	}
 	klog.V(4).InfoS("Deleting pod", "pod", klog.KObj(pod))
+	c.pushEvent(pod, core.PodDelete)
+}
 
+func (c *PodController) pushEvent(pod *v1.Pod, status core.PodStatus) {
+	namespace := pod.Namespace
+	podName := pod.Name
+
+	images := make(map[string]string)
 	for _, container := range pod.Status.ContainerStatuses {
-		log.Info(fmt.Sprintf("the pod '%s' using image '%s' has been removed", pod.Name, container.Image))
+		images[container.ImageID] = container.Image
+	}
+
+	timestamp := time.Now().UnixNano() / 1e6
+	for imageId, image := range images {
 		c.queue.Add(
 			&core.PodEvent{
-				Timestamp: time.Now().UnixNano() / 1e6,
-				ImageId:   convertToId(container.ImageID),
-				Image:     container.Image,
-				Status:    core.PodDelete,
+				Timestamp: timestamp,
+				Namespace: namespace,
+				PodName:   podName,
+				ImageId:   imageId,
+				Image:     image,
+				Status:    status,
 			},
 		)
 	}
@@ -78,14 +82,14 @@ func (c *PodController) processNextWorkItem() bool {
 	podEvent := obj.(*core.PodEvent)
 
 	if podEvent.Status == core.PodCreate {
-		utilruntime.HandleError(processPodCreate(c.conf, *podEvent))
+		utilruntime.HandleError(processPodCreate(c.conf, podEvent))
 	} else {
-		utilruntime.HandleError(processPodDelete(c.conf, *podEvent))
+		utilruntime.HandleError(processPodDelete(c.conf, podEvent))
 	}
 	return true
 }
 
-func processPodCreate(conf *core.Config, event core.PodEvent) error {
+func processPodCreate(conf *core.Config, event *core.PodEvent) error {
 	exists, err := db.ImageExists(conf, event.ImageId)
 	if err != nil {
 		return err
@@ -106,14 +110,14 @@ func processPodCreate(conf *core.Config, event core.PodEvent) error {
 		log.Infof("scan results of '%v' has been saved", event.ImageId)
 	}
 
-	if err := db.SaveImageStatus(conf, event.Timestamp, event.ImageId, core.PodCreate); err != nil {
+	if err := db.SavePodEvent(conf, event); err != nil {
 		return err
 	}
 	return db.UpdateImagePods(conf, event.ImageId, core.PodCreate)
 }
 
-func processPodDelete(conf *core.Config, event core.PodEvent) error {
-	if err := db.SaveImageStatus(conf, event.Timestamp, event.ImageId, core.PodDelete); err != nil {
+func processPodDelete(conf *core.Config, event *core.PodEvent) error {
+	if err := db.SavePodEvent(conf, event); err != nil {
 		return err
 	}
 	return db.UpdateImagePods(conf, event.ImageId, core.PodDelete)
@@ -132,9 +136,9 @@ func StartPodInformer(conf *core.Config) {
 	}
 
 	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.add,
+		AddFunc:    c.Add,
 		UpdateFunc: func(interface{}, interface{}) {},
-		DeleteFunc: c.delete,
+		DeleteFunc: c.Delete,
 	})
 
 	stopCh := setupSignalHandler()

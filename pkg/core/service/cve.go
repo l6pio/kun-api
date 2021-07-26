@@ -157,7 +157,6 @@ func UpdateVulnerabilityDatabase() error {
 		log.Errorf("update vulnerability database failed: %v", err)
 		return err
 	}
-	log.Info(string(buildOut.Bytes()))
 	log.Info("update vulnerability database completed")
 	return nil
 }

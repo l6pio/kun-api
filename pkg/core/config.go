@@ -22,10 +22,12 @@ const (
 )
 
 type PodEvent struct {
-	Timestamp int64
-	ImageId   string
-	Image     string
-	Status    PodStatus
+	Timestamp int64     `json:"timestamp" bson:"timestamp"`
+	Namespace string    `json:"namespace" bson:"namespace"`
+	PodName   string    `json:"podName" bson:"podName"`
+	ImageId   string    `json:"imageId" bson:"imageId"`
+	Image     string    `json:"image" bson:"image"`
+	Status    PodStatus `json:"status" bson:"status"`
 }
 
 func NewConfig(mongoAddr, mongoUser, mongoPass, master, kubeconfig string) (*Config, error) {

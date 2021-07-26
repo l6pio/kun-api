@@ -41,7 +41,7 @@ func FindImageById(conf *core.Config, id string) (interface{}, error) {
 }
 
 func FindImageTimelineById(conf *core.Config, id string) ([]interface{}, error) {
-	session, col, err := GetCol(conf, "image-event")
+	session, col, err := GetCol(conf, "pod-event")
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func FindImageTimelineById(conf *core.Config, id string) ([]interface{}, error) 
 	var ret []interface{}
 	var stages []bson.M
 	stages = append(stages,
-		bson.M{"$match": bson.M{"id": id}},
+		bson.M{"$match": bson.M{"imageId": id}},
 		bson.M{"$group": bson.M{
 			"_id": bson.M{
 				"$subtract": []bson.M{
@@ -100,14 +100,14 @@ func SaveImage(conf *core.Config, img *vo.Image) error {
 	return err
 }
 
-func SaveImageStatus(conf *core.Config, timestamp int64, id string, status core.PodStatus) error {
-	session, col, err := GetCol(conf, "image-event")
+func SavePodEvent(conf *core.Config, event *core.PodEvent) error {
+	session, col, err := GetCol(conf, "pod-event")
 	if err != nil {
 		return err
 	}
 	defer session.Close()
 
-	return col.Insert(bson.M{"timestamp": timestamp, "id": id, "status": status})
+	return col.Insert(event)
 }
 
 func UpdateImagePods(conf *core.Config, imageId string, status core.PodStatus) error {
