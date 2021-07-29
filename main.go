@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/gommon/log"
 	"l6p.io/kun/api/pkg/core"
 	"l6p.io/kun/api/pkg/core/db"
+	"l6p.io/kun/api/pkg/core/k8s"
 	"l6p.io/kun/api/pkg/core/service"
 	"l6p.io/kun/api/pkg/v1/router"
 	"net/http"
@@ -49,7 +50,7 @@ func main() {
 	}
 
 	go service.PeriodicallyUpdateVulnerabilityDatabase()
-	go service.StartPodInformer(conf)
+	go k8s.StartPodInformer(conf)
 
 	if err := server.Start(":1323"); err != nil {
 		log.Fatalf("server startup failed: %v", err)

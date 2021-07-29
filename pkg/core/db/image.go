@@ -41,7 +41,7 @@ func FindImageById(conf *core.Config, id string) (interface{}, error) {
 }
 
 func FindImageTimelineById(conf *core.Config, id string) ([]interface{}, error) {
-	session, col, err := GetCol(conf, "pod-event")
+	session, col, err := GetCol(conf, "image-timeline")
 	if err != nil {
 		return nil, err
 	}
@@ -100,27 +100,27 @@ func SaveImage(conf *core.Config, img *vo.Image) error {
 	return err
 }
 
-func SavePodEvent(conf *core.Config, event *core.PodEvent) error {
-	session, col, err := GetCol(conf, "pod-event")
+func SaveImageTimelineEvent(conf *core.Config, timeline *vo.ImageTimeline) error {
+	session, col, err := GetCol(conf, "image-timeline")
 	if err != nil {
 		return err
 	}
 	defer session.Close()
 
-	return col.Insert(event)
+	return col.Insert(timeline)
 }
 
-func UpdateImagePods(conf *core.Config, imageId string, status core.PodStatus) error {
+func UpdateImagePods(conf *core.Config, event *vo.ImageTimeline) error {
 	session, col, err := GetCol(conf, "image")
 	if err != nil {
 		return err
 	}
 	defer session.Close()
 
-	if status == core.PodCreate {
-		return col.Update(bson.M{"id": imageId}, bson.M{"$inc": bson.M{"pods": 1}})
+	if event.Status == vo.ImageUp {
+		return col.Update(bson.M{"id": event.ImageId}, bson.M{"$inc": bson.M{"pods": 1}})
 	} else {
-		err := col.Update(bson.M{"id": imageId, "pods": bson.M{"$gt": 0}}, bson.M{"$inc": bson.M{"pods": -1}})
+		err := col.Update(bson.M{"id": event.ImageId, "pods": bson.M{"$gt": 0}}, bson.M{"$inc": bson.M{"pods": -1}})
 		if err != mgo.ErrNotFound {
 			return err
 		}

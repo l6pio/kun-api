@@ -14,22 +14,6 @@ type Config struct {
 	KubeClient   *kubernetes.Clientset
 }
 
-type PodStatus int
-
-const (
-	PodCreate PodStatus = 1
-	PodDelete PodStatus = 0
-)
-
-type PodEvent struct {
-	Timestamp int64     `json:"timestamp" bson:"timestamp"`
-	Namespace string    `json:"namespace" bson:"namespace"`
-	PodName   string    `json:"podName" bson:"podName"`
-	ImageId   string    `json:"imageId" bson:"imageId"`
-	Image     string    `json:"image" bson:"image"`
-	Status    PodStatus `json:"status" bson:"status"`
-}
-
 func NewConfig(mongoAddr, mongoUser, mongoPass, master, kubeconfig string) (*Config, error) {
 	k8sConfig, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	//k8sConfig, err := rest.InClusterConfig()

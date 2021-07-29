@@ -32,7 +32,7 @@ var VulFixState = map[string]int64{
 	"unknown":   0,
 }
 
-func Scan(image string) (*vo.Report, error) {
+func ScanImageReport(image string) (*vo.Report, error) {
 	log.Infof("preparing to scan the image: %s", image)
 
 	var buildOut bytes.Buffer
@@ -55,7 +55,7 @@ func Scan(image string) (*vo.Report, error) {
 	return &report, nil
 }
 
-func Insert(conf *core.Config, imageId string, report *vo.Report) {
+func InsertImageReport(conf *core.Config, imageId string, report *vo.Report) {
 	img := dbvo.Image{
 		Id:   imageId,
 		Name: report.Source.Target.UserInput,
