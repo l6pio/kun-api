@@ -128,7 +128,7 @@ func UpdateImagePods(conf *core.Config, event *vo.ImageTimeline) error {
 	}
 }
 
-func CleanAllImagePods(conf *core.Config) error {
+func CleanImagePods(conf *core.Config) error {
 	session, col, err := GetCol(conf, "image")
 	if err != nil {
 		return err

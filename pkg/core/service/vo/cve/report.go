@@ -1,4 +1,4 @@
-package vo
+package cve
 
 type Report struct {
 	Matches []*Match `json:"matches"`

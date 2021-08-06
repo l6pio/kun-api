@@ -2,6 +2,7 @@ package db
 
 import (
 	"gopkg.in/mgo.v2/bson"
+	v1 "k8s.io/api/core/v1"
 	"l6p.io/kun/api/pkg/core"
 	"l6p.io/kun/api/pkg/core/db/vo"
 )
@@ -15,4 +16,66 @@ func SavePod(conf *core.Config, pod *vo.Pod) error {
 
 	_, err = col.Upsert(bson.M{"name": pod.Name}, pod)
 	return err
+}
+
+func GetTotalPods(conf *core.Config) (int, error) {
+	session, col, err := GetCol(conf, "pod")
+	if err != nil {
+		return 0, err
+	}
+	defer session.Close()
+
+	var ret map[string]int
+	err = col.Pipe([]bson.M{
+		{"$match": bson.M{"phase": v1.PodRunning}},
+		{"$count": "count"},
+	}).One(&ret)
+	if err != nil {
+		return 0, err
+	}
+	return ret["count"], nil
+}
+
+func GetPodCountByStatus(conf *core.Config) (map[string]int, error) {
+	session, col, err := GetCol(conf, "pod")
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+
+	var res []map[string]interface{}
+	err = col.Pipe([]bson.M{
+		{"$group": bson.M{
+			"_id":   "$status",
+			"count": bson.M{"$sum": 1},
+		}},
+		{"$project": bson.M{
+			"_id":    false,
+			"status": "$_id",
+			"count":  "$count",
+		}},
+	}).All(&res)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make(map[string]int)
+	for _, d := range res {
+		status := d["status"].(string)
+		if status == "" {
+			status = "Unknown"
+		}
+		ret[status] = d["count"].(int)
+	}
+	return ret, nil
+}
+
+func RemovePods(conf *core.Config) error {
+	session, col, err := GetCol(conf, "pod")
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	return col.DropCollection()
 }

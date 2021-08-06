@@ -10,7 +10,7 @@ import (
 	"l6p.io/kun/api/pkg/core"
 	"l6p.io/kun/api/pkg/core/db"
 	dbvo "l6p.io/kun/api/pkg/core/db/vo"
-	"l6p.io/kun/api/pkg/core/service/vo"
+	"l6p.io/kun/api/pkg/core/service/vo/cve"
 	"os/exec"
 	"strconv"
 	"time"
@@ -32,7 +32,7 @@ var VulFixState = map[string]int64{
 	"unknown":   0,
 }
 
-func ScanImageReport(image string) (*vo.Report, error) {
+func ScanImageReport(image string) (*cve.Report, error) {
 	log.Infof("preparing to scan the image: %s", image)
 
 	var buildOut bytes.Buffer
@@ -47,7 +47,7 @@ func ScanImageReport(image string) (*vo.Report, error) {
 	}
 	log.Info("scanning completed")
 
-	var report vo.Report
+	var report cve.Report
 	if err := json.Unmarshal(buildOut.Bytes(), &report); err != nil {
 		log.Errorf("scan result parsing failed: %v", err)
 		return nil, err
@@ -55,7 +55,7 @@ func ScanImageReport(image string) (*vo.Report, error) {
 	return &report, nil
 }
 
-func InsertImageReport(conf *core.Config, imageId string, report *vo.Report) {
+func InsertImageReport(conf *core.Config, imageId string, report *cve.Report) {
 	img := dbvo.Image{
 		Id:   imageId,
 		Name: report.Source.Target.UserInput,

@@ -39,14 +39,19 @@ func main() {
 
 	apiV1 := server.Group("/api/v1")
 	router.PingRouter(apiV1.Group("/ping"))
+	router.PodRouter(apiV1.Group("/pod"))
 	router.ImageRouter(apiV1.Group("/image"))
 	router.ArtifactRouter(apiV1.Group("/artifact"))
 	router.CveRouter(apiV1.Group("/cve"))
 
 	server.HTTPErrorHandler = ErrorHandler
 
-	if err := db.CleanAllImagePods(conf); err != nil {
-		log.Fatalf("initialization of database failed: %v", err)
+	if err := db.RemovePods(conf); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := db.CleanImagePods(conf); err != nil {
+		log.Fatal(err)
 	}
 
 	go service.PeriodicallyUpdateVulnerabilityDatabase()
