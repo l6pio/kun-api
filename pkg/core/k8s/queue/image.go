@@ -9,31 +9,28 @@ import (
 	"l6p.io/kun/api/pkg/core/db"
 	"l6p.io/kun/api/pkg/core/db/vo"
 	"l6p.io/kun/api/pkg/core/service"
-	"time"
 )
 
-type ImageTimelineQueue struct {
+type ImageQueue struct {
 	conf  *core.Config
 	queue workqueue.RateLimitingInterface
 }
 
-func NewImageTimelineQueue(conf *core.Config) *ImageTimelineQueue {
-	return &ImageTimelineQueue{
+func NewImageQueue(conf *core.Config) *ImageQueue {
+	return &ImageQueue{
 		conf: conf,
 		queue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.DefaultControllerRateLimiter(),
-			"ImageTimelineQueue",
+			"ImageQueue",
 		),
 	}
 }
 
-func (p *ImageTimelineQueue) ShutDown() {
+func (p *ImageQueue) ShutDown() {
 	p.ShutDown()
 }
 
-func (p *ImageTimelineQueue) Push(pod *v1.Pod, status vo.ImageStatus) {
-	timestamp := time.Now().UnixNano() / 1e6
-
+func (p *ImageQueue) Push(pod *v1.Pod, status vo.ImageStatus) {
 	images := make(map[string]string)
 	for _, container := range pod.Status.ContainerStatuses {
 		images[container.ImageID] = container.Image
@@ -42,7 +39,7 @@ func (p *ImageTimelineQueue) Push(pod *v1.Pod, status vo.ImageStatus) {
 	for imageId, image := range images {
 		p.queue.Add(
 			&vo.ImageTimeline{
-				Timestamp: timestamp,
+				Timestamp: pod.Status.StartTime.UnixNano() / 1e6,
 				ImageId:   imageId,
 				Image:     image,
 				Status:    status,
@@ -51,12 +48,12 @@ func (p *ImageTimelineQueue) Push(pod *v1.Pod, status vo.ImageStatus) {
 	}
 }
 
-func (p *ImageTimelineQueue) Worker() {
+func (p *ImageQueue) Worker() {
 	for p.processNextWorkItem() {
 	}
 }
 
-func (p *ImageTimelineQueue) processNextWorkItem() bool {
+func (p *ImageQueue) processNextWorkItem() bool {
 	obj, quit := p.queue.Get()
 	if quit {
 		return false

@@ -9,3 +9,9 @@ type Pod struct {
 	Phase     v1.PodPhase `json:"phase" bson:"phase"`
 	Status    string      `json:"status" bson:"status"`
 }
+
+type PodTimeline struct {
+	Timestamp int64       `json:"timestamp" bson:"timestamp"`
+	Name      string      `json:"name" bson:"name"`
+	Status    ImageStatus `json:"status" bson:"status"`
+}

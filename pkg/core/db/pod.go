@@ -76,6 +76,6 @@ func RemovePods(conf *core.Config) error {
 		return err
 	}
 	defer session.Close()
-
-	return col.DropCollection()
+	_ = col.DropCollection()
+	return nil
 }

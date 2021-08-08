@@ -20,9 +20,9 @@ import (
 var shutdownSignals = []os.Signal{syscall.SIGINT, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGQUIT}
 
 type PodController struct {
-	conf               *core.Config
-	podQueue           *queue.PodQueue
-	imageTimelineQueue *queue.ImageTimelineQueue
+	conf       *core.Config
+	podQueue   *queue.PodQueue
+	imageQueue *queue.ImageQueue
 }
 
 func (c *PodController) Add(obj interface{}) {
@@ -32,7 +32,7 @@ func (c *PodController) Add(obj interface{}) {
 	}
 	klog.V(4).InfoS("Adding pod", "pod", klog.KObj(pod))
 	c.podQueue.Push(pod)
-	c.imageTimelineQueue.Push(pod, vo.ImageUp)
+	c.imageQueue.Push(pod, vo.ImageUp)
 }
 
 func (c *PodController) Delete(obj interface{}) {
@@ -42,7 +42,7 @@ func (c *PodController) Delete(obj interface{}) {
 	}
 	klog.V(4).InfoS("Deleting pod", "pod", klog.KObj(pod))
 	c.podQueue.Push(pod)
-	c.imageTimelineQueue.Push(pod, vo.ImageDown)
+	c.imageQueue.Push(pod, vo.ImageDown)
 }
 
 func StartPodInformer(conf *core.Config) {
@@ -50,9 +50,9 @@ func StartPodInformer(conf *core.Config) {
 	podInformer := informerFactory.Core().V1().Pods()
 
 	c := &PodController{
-		conf:               conf,
-		podQueue:           queue.NewPodQueue(conf),
-		imageTimelineQueue: queue.NewImageTimelineQueue(conf),
+		conf:       conf,
+		podQueue:   queue.NewPodQueue(conf),
+		imageQueue: queue.NewImageQueue(conf),
 	}
 
 	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -66,7 +66,7 @@ func StartPodInformer(conf *core.Config) {
 
 	defer runtime.HandleCrash()
 	defer c.podQueue.ShutDown()
-	defer c.imageTimelineQueue.ShutDown()
+	defer c.imageQueue.ShutDown()
 
 	log.Info("start listening for Pod events")
 	defer log.Info("stop listening to Pod events")
@@ -77,7 +77,7 @@ func StartPodInformer(conf *core.Config) {
 
 	for i := 0; i < 5; i++ {
 		go wait.Until(c.podQueue.Worker, time.Second, stopCh)
-		go wait.Until(c.imageTimelineQueue.Worker, time.Second, stopCh)
+		go wait.Until(c.imageQueue.Worker, time.Second, stopCh)
 	}
 	<-stopCh
 }
