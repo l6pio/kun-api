@@ -17,8 +17,14 @@ func GetPodsOverview(conf *core.Config) (*vo.PodsOverview, error) {
 		return nil, err
 	}
 
+	countByPhase, err := db.GetPodCountByPhase(conf)
+	if err != nil {
+		return nil, err
+	}
+
 	return &vo.PodsOverview{
 		Count:         count,
 		CountByStatus: countByStatus,
+		CountByPhase:  countByPhase,
 	}, nil
 }

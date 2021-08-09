@@ -70,6 +70,40 @@ func GetPodCountByStatus(conf *core.Config) (map[string]int, error) {
 	return ret, nil
 }
 
+func GetPodCountByPhase(conf *core.Config) (map[string]int, error) {
+	session, col, err := GetCol(conf, "pod")
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+
+	var res []map[string]interface{}
+	err = col.Pipe([]bson.M{
+		{"$group": bson.M{
+			"_id":   "$phase",
+			"count": bson.M{"$sum": 1},
+		}},
+		{"$project": bson.M{
+			"_id":   false,
+			"phase": "$_id",
+			"count": "$count",
+		}},
+	}).All(&res)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make(map[string]int)
+	for _, d := range res {
+		phase := d["phase"].(string)
+		if phase == "" {
+			phase = "Unknown"
+		}
+		ret[phase] = d["count"].(int)
+	}
+	return ret, nil
+}
+
 func RemovePods(conf *core.Config) error {
 	session, col, err := GetCol(conf, "pod")
 	if err != nil {
