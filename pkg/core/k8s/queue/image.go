@@ -77,7 +77,7 @@ func processImageUp(conf *core.Config, event *vo.ImageTimeline) error {
 		return err
 	}
 
-	if !exists {
+	if !exists && false {
 		report, err := service.ScanImageReport(event.Image)
 		if err != nil {
 			return err

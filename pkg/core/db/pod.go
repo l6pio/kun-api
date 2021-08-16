@@ -104,6 +104,33 @@ func GetPodCountByPhase(conf *core.Config) (map[string]int, error) {
 	return ret, nil
 }
 
+func FindRunningPodTimeline(conf *core.Config) ([]interface{}, error) {
+	session, col, err := GetCol(conf, "pod")
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+
+	var ret []interface{}
+	var stages []bson.M
+	stages = append(stages,
+		bson.M{"$match": bson.M{"phase": v1.PodRunning}},
+		bson.M{"$match": bson.M{"status": "Running"}},
+		bson.M{"$group": bson.M{
+			"_id": bson.M{
+				"$subtract": []bson.M{
+					{"$toLong": "$started"},
+					{"$mod": []interface{}{bson.M{"$toLong": "$started"}, 60 * 1000}},
+				},
+			},
+			"count": bson.M{"$sum": 1},
+		}},
+		bson.M{"$addFields": bson.M{"timestamp": "$_id"}},
+	)
+	err = col.Pipe(stages).All(&ret)
+	return ret, err
+}
+
 func RemovePods(conf *core.Config) error {
 	session, col, err := GetCol(conf, "pod")
 	if err != nil {

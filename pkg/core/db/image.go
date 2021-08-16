@@ -118,14 +118,17 @@ func UpdateImagePods(conf *core.Config, event *vo.ImageTimeline) error {
 	defer session.Close()
 
 	if event.Status == vo.ImageUp {
-		return col.Update(bson.M{"id": event.ImageId}, bson.M{"$inc": bson.M{"pods": 1}})
+		err := col.Update(bson.M{"id": event.ImageId}, bson.M{"$inc": bson.M{"pods": 1}})
+		if err != mgo.ErrNotFound {
+			return err
+		}
 	} else {
 		err := col.Update(bson.M{"id": event.ImageId, "pods": bson.M{"$gt": 0}}, bson.M{"$inc": bson.M{"pods": -1}})
 		if err != mgo.ErrNotFound {
 			return err
 		}
-		return nil
 	}
+	return nil
 }
 
 func CleanImagePods(conf *core.Config) error {

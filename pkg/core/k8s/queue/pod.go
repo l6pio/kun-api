@@ -7,7 +7,6 @@ import (
 	"l6p.io/kun/api/pkg/core"
 	"l6p.io/kun/api/pkg/core/db"
 	"l6p.io/kun/api/pkg/core/db/vo"
-	"time"
 )
 
 type PodQueue struct {
@@ -30,26 +29,30 @@ func (p *PodQueue) ShutDown() {
 }
 
 func (p *PodQueue) Push(pod *v1.Pod) {
-	timestamp := time.Now().UnixNano() / 1e6
-
 	var statue string
+	var started, finished int64
 	for _, container := range pod.Status.ContainerStatuses {
 		if container.State.Terminated != nil {
 			statue = container.State.Terminated.Reason
+			started = container.State.Terminated.StartedAt.UnixNano() / 1e6
+			finished = container.State.Terminated.FinishedAt.UnixNano() / 1e6
 		} else if container.State.Waiting != nil {
 			statue = container.State.Waiting.Reason
 		} else {
 			statue = "Running"
+			started = container.State.Running.StartedAt.UnixNano() / 1e6
+			finished = 0
 		}
 	}
 
 	p.queue.Add(
 		&vo.Pod{
-			Timestamp: timestamp,
-			Namespace: pod.Namespace,
 			Name:      pod.Name,
+			Namespace: pod.Namespace,
 			Phase:     pod.Status.Phase,
 			Status:    statue,
+			Started:   started,
+			Finished:  finished,
 		},
 	)
 }
