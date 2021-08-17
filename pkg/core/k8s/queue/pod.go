@@ -31,6 +31,7 @@ func (p *PodQueue) ShutDown() {
 func (p *PodQueue) Push(pod *v1.Pod) {
 	var statue string
 	var started, finished int64
+
 	for _, container := range pod.Status.ContainerStatuses {
 		if container.State.Terminated != nil {
 			statue = container.State.Terminated.Reason
@@ -47,12 +48,13 @@ func (p *PodQueue) Push(pod *v1.Pod) {
 
 	p.queue.Add(
 		&vo.Pod{
-			Name:      pod.Name,
-			Namespace: pod.Namespace,
-			Phase:     pod.Status.Phase,
-			Status:    statue,
-			Started:   started,
-			Finished:  finished,
+			Name:         pod.Name,
+			Namespace:    pod.Namespace,
+			Phase:        pod.Status.Phase,
+			Acknowledged: pod.CreationTimestamp.UnixNano() / 1e6,
+			Status:       statue,
+			Started:      started,
+			Finished:     finished,
 		},
 	)
 }

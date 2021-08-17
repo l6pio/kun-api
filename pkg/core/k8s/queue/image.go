@@ -31,20 +31,20 @@ func (p *ImageQueue) ShutDown() {
 }
 
 func (p *ImageQueue) Push(pod *v1.Pod, status vo.ImageStatus) {
-	images := make(map[string]string)
+	images := make(map[string]*vo.ImageTimeline)
 	for _, container := range pod.Status.ContainerStatuses {
-		images[container.ImageID] = container.Image
+		if container.State.Running != nil && container.State.Terminated == nil && container.State.Waiting == nil {
+			images[container.ImageID] = &vo.ImageTimeline{
+				Timestamp: container.State.Running.StartedAt.UnixNano() / 1e6,
+				ImageId:   container.ImageID,
+				Image:     container.Image,
+				Status:    status,
+			}
+		}
 	}
 
-	for imageId, image := range images {
-		p.queue.Add(
-			&vo.ImageTimeline{
-				Timestamp: pod.Status.StartTime.UnixNano() / 1e6,
-				ImageId:   imageId,
-				Image:     image,
-				Status:    status,
-			},
-		)
+	for _, timeline := range images {
+		p.queue.Add(timeline)
 	}
 }
 
