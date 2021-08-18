@@ -7,7 +7,12 @@ import (
 )
 
 func GetPodsOverview(conf *core.Config) (*vo.PodsOverview, error) {
-	count, err := db.GetTotalPods(conf)
+	total, err := db.GetTotalPods(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	totalRunning, err := db.GetTotalRunningPods(conf)
 	if err != nil {
 		return nil, err
 	}
@@ -23,7 +28,8 @@ func GetPodsOverview(conf *core.Config) (*vo.PodsOverview, error) {
 	}
 
 	return &vo.PodsOverview{
-		Count:         count,
+		Total:         total,
+		TotalRunning:  totalRunning,
 		CountByStatus: countByStatus,
 		CountByPhase:  countByPhase,
 	}, nil

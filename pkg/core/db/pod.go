@@ -27,7 +27,25 @@ func GetTotalPods(conf *core.Config) (int, error) {
 
 	var ret map[string]int
 	err = col.Pipe([]bson.M{
+		{"$count": "count"},
+	}).One(&ret)
+	if err != nil {
+		return 0, err
+	}
+	return ret["count"], nil
+}
+
+func GetTotalRunningPods(conf *core.Config) (int, error) {
+	session, col, err := GetCol(conf, "pod")
+	if err != nil {
+		return 0, err
+	}
+	defer session.Close()
+
+	var ret map[string]int
+	err = col.Pipe([]bson.M{
 		{"$match": bson.M{"phase": v1.PodRunning}},
+		{"$match": bson.M{"status": "Running"}},
 		{"$count": "count"},
 	}).One(&ret)
 	if err != nil {
