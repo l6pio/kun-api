@@ -6,13 +6,8 @@ import (
 	"l6p.io/kun/api/pkg/core/service/vo"
 )
 
-func GetPodsOverview(conf *core.Config) (*vo.PodsOverview, error) {
+func GetPodCount(conf *core.Config) (*vo.PodCount, error) {
 	total, err := db.GetTotalPods(conf)
-	if err != nil {
-		return nil, err
-	}
-
-	totalRunning, err := db.GetTotalRunningPods(conf)
 	if err != nil {
 		return nil, err
 	}
@@ -27,9 +22,8 @@ func GetPodsOverview(conf *core.Config) (*vo.PodsOverview, error) {
 		return nil, err
 	}
 
-	return &vo.PodsOverview{
+	return &vo.PodCount{
 		Total:         total,
-		TotalRunning:  totalRunning,
 		CountByStatus: countByStatus,
 		CountByPhase:  countByPhase,
 	}, nil

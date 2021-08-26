@@ -7,7 +7,7 @@ type Pod struct {
 	Namespace    string      `json:"namespace" bson:"namespace"`
 	Phase        v1.PodPhase `json:"phase" bson:"phase"`
 	Status       string      `json:"status" bson:"status"`
-	Acknowledged int64       `json:"acknowledged" bson:"acknowledged"`
-	Started      int64       `json:"started" bson:"started"`
+	Ready        int64       `json:"ready" bson:"ready"`
 	Finished     int64       `json:"finished" bson:"finished"`
+	RestartCount int32       `json:"restartCount" bson:"restartCount"`
 }

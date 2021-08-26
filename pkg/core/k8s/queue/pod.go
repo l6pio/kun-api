@@ -29,21 +29,62 @@ func (p *PodQueue) ShutDown() {
 }
 
 func (p *PodQueue) Push(pod *v1.Pod) {
-	var statue string
-	var started, finished int64
+	var podStatue string
+	var podReady, podFinished int64
+	var podRestartCount int32
+
+	if pod.Status.Phase == v1.PodFailed {
+		for _, container := range pod.Status.ContainerStatuses {
+			startAt := container.State.Terminated.StartedAt.UnixNano() / 1e6
+			if startAt > podReady {
+				podReady = startAt
+			}
+
+			if container.State.Terminated.ExitCode > 0 {
+				podStatue = container.State.Terminated.Reason
+				podFinished = container.State.Terminated.FinishedAt.UnixNano() / 1e6
+			}
+		}
+	} else if pod.Status.Phase == v1.PodSucceeded {
+		for _, container := range pod.Status.ContainerStatuses {
+			startAt := container.State.Terminated.StartedAt.UnixNano() / 1e6
+			if startAt > podReady {
+				podReady = startAt
+			}
+
+			finished := container.State.Terminated.FinishedAt.UnixNano() / 1e6
+			if finished > podFinished {
+				podStatue = container.State.Terminated.Reason
+				podFinished = finished
+			}
+		}
+	} else if pod.Status.Phase == v1.PodRunning {
+		podStatue = string(v1.PodRunning)
+		for _, container := range pod.Status.ContainerStatuses {
+			if container.State.Running != nil {
+				startAt := container.State.Running.StartedAt.UnixNano() / 1e6
+				if startAt > podReady {
+					podReady = startAt
+				}
+			}
+
+			if container.State.Terminated != nil {
+				startAt := container.State.Terminated.StartedAt.UnixNano() / 1e6
+				if startAt > podReady {
+					podReady = startAt
+				}
+			}
+		}
+	} else if pod.Status.Phase == v1.PodPending {
+		for _, container := range pod.Status.ContainerStatuses {
+			if container.State.Waiting != nil {
+				podStatue = container.State.Waiting.Reason
+			}
+		}
+	}
 
 	for _, container := range pod.Status.ContainerStatuses {
-		if container.State.Terminated != nil {
-			statue = container.State.Terminated.Reason
-			started = container.State.Terminated.StartedAt.UnixNano() / 1e6
-			finished = container.State.Terminated.FinishedAt.UnixNano() / 1e6
-		} else if container.State.Waiting != nil {
-			statue = container.State.Waiting.Reason
-		} else {
-			statue = "Running"
-			started = container.State.Running.StartedAt.UnixNano() / 1e6
-			finished = 0
-		}
+		podRestartCount += container.RestartCount
 	}
 
 	p.queue.Add(
@@ -51,10 +92,10 @@ func (p *PodQueue) Push(pod *v1.Pod) {
 			Name:         pod.Name,
 			Namespace:    pod.Namespace,
 			Phase:        pod.Status.Phase,
-			Acknowledged: pod.CreationTimestamp.UnixNano() / 1e6,
-			Status:       statue,
-			Started:      started,
-			Finished:     finished,
+			Status:       podStatue,
+			Ready:        podReady,
+			Finished:     podFinished,
+			RestartCount: podRestartCount,
 		},
 	)
 }

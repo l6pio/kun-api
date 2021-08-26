@@ -9,20 +9,20 @@ import (
 )
 
 func PodRouter(group *echo.Group) {
-	group.GET("/overview", func(ctx echo.Context) error {
+	group.GET("/timeline", func(ctx echo.Context) error {
 		conf := ctx.Get("config").(*core.Config)
 
-		ret, err := service.GetPodsOverview(conf)
+		ret, err := db.FindRunningPodTimeline(conf)
 		if err != nil {
 			return err
 		}
 		return ctx.JSON(http.StatusOK, ret)
 	})
 
-	group.GET("/timeline", func(ctx echo.Context) error {
+	group.GET("/count", func(ctx echo.Context) error {
 		conf := ctx.Get("config").(*core.Config)
 
-		ret, err := db.FindRunningPodTimeline(conf)
+		ret, err := service.GetPodCount(conf)
 		if err != nil {
 			return err
 		}
