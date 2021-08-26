@@ -12,19 +12,25 @@ func GetPodCount(conf *core.Config) (*vo.PodCount, error) {
 		return nil, err
 	}
 
-	countByStatus, err := db.GetPodCountByStatus(conf)
-	if err != nil {
-		return nil, err
-	}
-
 	countByPhase, err := db.GetPodCountByPhase(conf)
 	if err != nil {
 		return nil, err
 	}
 
+	countByStatus, err := db.GetPodCountByStatus(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	countByNamespace, err := db.GetPodCountByNamespace(conf)
+	if err != nil {
+		return nil, err
+	}
+
 	return &vo.PodCount{
-		Total:         total,
-		CountByStatus: countByStatus,
-		CountByPhase:  countByPhase,
+		Total:            total,
+		CountByStatus:    countByStatus,
+		CountByPhase:     countByPhase,
+		CountByNamespace: countByNamespace,
 	}, nil
 }

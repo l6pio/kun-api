@@ -35,6 +35,40 @@ func GetTotalPods(conf *core.Config) (int, error) {
 	return ret["count"], nil
 }
 
+func GetPodCountByPhase(conf *core.Config) (map[string]int, error) {
+	session, col, err := GetCol(conf, "pod")
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+
+	var res []map[string]interface{}
+	err = col.Pipe([]bson.M{
+		{"$group": bson.M{
+			"_id":   "$phase",
+			"count": bson.M{"$sum": 1},
+		}},
+		{"$project": bson.M{
+			"_id":   false,
+			"phase": "$_id",
+			"count": "$count",
+		}},
+	}).All(&res)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make(map[string]int)
+	for _, d := range res {
+		phase := d["phase"].(string)
+		if phase == "" {
+			phase = "Unknown"
+		}
+		ret[phase] = d["count"].(int)
+	}
+	return ret, nil
+}
+
 func GetPodCountByStatus(conf *core.Config) (map[string]int, error) {
 	session, col, err := GetCol(conf, "pod")
 	if err != nil {
@@ -69,7 +103,7 @@ func GetPodCountByStatus(conf *core.Config) (map[string]int, error) {
 	return ret, nil
 }
 
-func GetPodCountByPhase(conf *core.Config) (map[string]int, error) {
+func GetPodCountByNamespace(conf *core.Config) (map[string]int, error) {
 	session, col, err := GetCol(conf, "pod")
 	if err != nil {
 		return nil, err
@@ -79,13 +113,13 @@ func GetPodCountByPhase(conf *core.Config) (map[string]int, error) {
 	var res []map[string]interface{}
 	err = col.Pipe([]bson.M{
 		{"$group": bson.M{
-			"_id":   "$phase",
+			"_id":   "$namespace",
 			"count": bson.M{"$sum": 1},
 		}},
 		{"$project": bson.M{
-			"_id":   false,
-			"phase": "$_id",
-			"count": "$count",
+			"_id":       false,
+			"namespace": "$_id",
+			"count":     "$count",
 		}},
 	}).All(&res)
 	if err != nil {
@@ -94,11 +128,8 @@ func GetPodCountByPhase(conf *core.Config) (map[string]int, error) {
 
 	ret := make(map[string]int)
 	for _, d := range res {
-		phase := d["phase"].(string)
-		if phase == "" {
-			phase = "Unknown"
-		}
-		ret[phase] = d["count"].(int)
+		namespace := d["namespace"].(string)
+		ret[namespace] = d["count"].(int)
 	}
 	return ret, nil
 }
