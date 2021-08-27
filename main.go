@@ -22,6 +22,8 @@ func main() {
 	var kubeConfig = flag.String("kubeconfig", "", "path to a kubeconfig.")
 	flag.Parse()
 
+	service.SaveGrypeConfigFile()
+
 	conf, err := core.NewConfig(*mongodbAddr, *mongodbUser, *mongodbPass, *master, *kubeConfig)
 	if err != nil {
 		log.Fatalf("initialization of configuration failed: %v", err)
