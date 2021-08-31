@@ -4,6 +4,8 @@ import (
 	_ "embed"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"l6p.io/kun/api/pkg/core"
+	"l6p.io/kun/api/pkg/core/db"
 )
 
 //go:embed templates/grype-config.yaml
@@ -29,26 +31,39 @@ type GrypeDbConfig struct {
 type GrypeRegistryConfig struct {
 	InsecureSkipTlsVerify bool                      `yaml:"insecure-skip-tls-verify"`
 	InsecureUseHttp       bool                      `yaml:"insecure-use-http"`
-	auth                  []GrypeRegistryAuthConfig `yaml:"auth"`
+	Auth                  []GrypeRegistryAuthConfig `yaml:"auth"`
 }
 
 type GrypeRegistryAuthConfig struct {
-	authority string `yaml:"authority"`
-	username  string `yaml:"username"`
-	password  string `yaml:"password"`
+	Authority string `yaml:"authority"`
+	Username  string `yaml:"username"`
+	Password  string `yaml:"password"`
 }
 
 type GrypeLogConfig struct {
-	file       string `yaml:"file"`
-	level      string `yaml:"level"`
-	structured bool   `yaml:"structured"`
+	File       string `yaml:"file"`
+	Level      string `yaml:"level"`
+	Structured bool   `yaml:"structured"`
 }
 
-func SaveGrypeConfigFile() error {
-	var conf GrypeConfig
-	err := yaml.Unmarshal([]byte(GrypeConfigTemplate), &conf)
+func SaveGrypeConfigFile(conf *core.Config) error {
+	var grypeConfig GrypeConfig
+	err := yaml.Unmarshal([]byte(GrypeConfigTemplate), &grypeConfig)
 	if err != nil {
 		return err
+	}
+
+	auths, err := db.ListAllRegistryAuthSettings(conf)
+	if err != nil {
+		return err
+	}
+
+	for _, auth := range auths {
+		grypeConfig.Registry.Auth = append(grypeConfig.Registry.Auth, GrypeRegistryAuthConfig{
+			Authority: auth.Authority,
+			Username:  auth.Username,
+			Password:  auth.Password,
+		})
 	}
 
 	//Configuration search paths:
@@ -56,7 +71,7 @@ func SaveGrypeConfigFile() error {
 	//  .grype/config.yaml
 	//  ~/.grype.yaml
 	//  <XDG_CONFIG_HOME>/grype/config.yaml
-	bytes, err := yaml.Marshal(conf)
+	bytes, err := yaml.Marshal(grypeConfig)
 	if err != nil {
 		return err
 	}
