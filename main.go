@@ -12,6 +12,7 @@ import (
 	"l6p.io/kun/api/pkg/core/service"
 	"l6p.io/kun/api/pkg/v1/router"
 	"net/http"
+	"os"
 )
 
 func main() {
@@ -27,7 +28,7 @@ func main() {
 		log.Fatalf("initialization of configuration failed: %v", err)
 	}
 
-	err = service.SaveGrypeConfigFile(conf)
+	err = service.SaveGrypeConfigFile(os.Getenv("REGISTRY"))
 	if err != nil {
 		log.Fatalf("save Grype configuration file failed: %v", err)
 	}

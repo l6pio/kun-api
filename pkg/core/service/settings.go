@@ -2,10 +2,9 @@ package service
 
 import (
 	_ "embed"
+	"encoding/base64"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
-	"l6p.io/kun/api/pkg/core"
-	"l6p.io/kun/api/pkg/core/db"
 )
 
 //go:embed templates/grype-config.yaml
@@ -46,24 +45,43 @@ type GrypeLogConfig struct {
 	Structured bool   `yaml:"structured"`
 }
 
-func SaveGrypeConfigFile(conf *core.Config) error {
+type ConfigRegistry struct {
+	Hub  string               `yaml:"hub,omitempty"`
+	Auth []ConfigRegistryAuth `yaml:"auth,omitempty"`
+}
+
+type ConfigRegistryAuth struct {
+	Authority string `yaml:"authority,omitempty"`
+	Username  string `yaml:"username,omitempty"`
+	Password  string `yaml:"password,omitempty"`
+}
+
+func SaveGrypeConfigFile(registry string) error {
 	var grypeConfig GrypeConfig
 	err := yaml.Unmarshal([]byte(GrypeConfigTemplate), &grypeConfig)
 	if err != nil {
 		return err
 	}
 
-	auths, err := db.ListAllRegistryAuthSettings(conf)
-	if err != nil {
-		return err
-	}
+	if registry != "" {
+		decode, err := base64.StdEncoding.DecodeString(registry)
+		if err != nil {
+			return err
+		}
 
-	for _, auth := range auths {
-		grypeConfig.Registry.Auth = append(grypeConfig.Registry.Auth, GrypeRegistryAuthConfig{
-			Authority: auth.Authority,
-			Username:  auth.Username,
-			Password:  auth.Password,
-		})
+		var configRegistry ConfigRegistry
+		err = yaml.Unmarshal(decode, &configRegistry)
+		if err != nil {
+			return err
+		}
+
+		for _, auth := range configRegistry.Auth {
+			grypeConfig.Registry.Auth = append(grypeConfig.Registry.Auth, GrypeRegistryAuthConfig{
+				Authority: auth.Authority,
+				Username:  auth.Username,
+				Password:  auth.Password,
+			})
+		}
 	}
 
 	//Configuration search paths:
