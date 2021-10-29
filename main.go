@@ -49,6 +49,7 @@ func main() {
 	router.ImageRouter(apiV1.Group("/image"))
 	router.ArtifactRouter(apiV1.Group("/artifact"))
 	router.CveRouter(apiV1.Group("/cve"))
+	router.GarbageRouter(apiV1.Group("/garbage"))
 
 	server.HTTPErrorHandler = ErrorHandler
 
